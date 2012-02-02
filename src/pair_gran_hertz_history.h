@@ -40,10 +40,8 @@ class PairGranHertzHistory : public PairGranHookeHistory {
  friend class FixWallGranHertzHistory;
 
  public:
-
   PairGranHertzHistory(class LAMMPS *);
-  virtual void init_substyle(); 
-  
+
  protected:
    virtual void deriveContactModelParams(int &, int &,double &, double &, double &,double &, double &, double &, double &,double &);
 };

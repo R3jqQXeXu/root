@@ -1,6 +1,6 @@
- "LAMMPS WWW Site"_lws - "LAMMPS Documentation"_ld - "LAMMPS Commands"_lc :c
+ "LIGGGHTS WWW Site"_lws - "LIGGGHTS Documentation"_ld - "LIGGGHTS Commands"_lc :c
 
-:link(lws,http://lammps.sandia.gov)
+:link(lws,http://www.cfdem.com)
 :link(ld,Manual.html)
 :link(lc,Section_commands.html#comm)
 
@@ -14,7 +14,7 @@ dump ID group-ID style N file args :pre
 
 ID = user-assigned name for the dump :ulb,l
 group-ID = ID of the group of atoms to be dumped :l
-style = {atom} or {cfg} or {dcd} or {xtc} or {xyz} or {local} or {custom} :l
+style = {atom} or {cfg} or {dcd} or {xtc} or {xyz} or {local} or {custom} or {stl} or {mesh/gran/VTK} :l
 N = dump every this many timesteps :l
 file = name of file to write dump info to :l
 args = list of arguments for a particular style :l
@@ -23,6 +23,12 @@ args = list of arguments for a particular style :l
   {dcd} args = none
   {xtc} args = none
   {xyz} args = none :pre
+
+
+  {stl} args = list of fix mesh/gran Ids to dump
+  {mesh/gran/VTK} args =  dump-identifier (mandatory) list of mesh IDs (optionally)
+      dump-identifier = 'stress' or 'id' or 'wear' or 'vel' or 'stresscomponents'
+      list of mesh Ids = list of Ids of fixes of type mesh/gran which should be dumped :pre
 
   {local} args = list of local attributes
     possible attributes = index, c_ID, c_ID\[N\], f_ID, f_ID\[N\]
@@ -56,7 +62,9 @@ args = list of arguments for a particular style :l
       mux,muy,muz = orientation of dipolar atom
       radius = radius of extended spherical particle
       omegax,omegay,omegaz = angular velocity of extended particle
-      angmomx,angmomy,angmomz = angular momentum of extended particle
+      angmomx,angmomy,angmomz = angular momentu mesh/gran/VTK args =  dump-identifier  list of mesh IDs (optionally)
+      dump-identifier = 'stress' or 'id' or 'wear' or 'vel'
+      list of mesh Ids = list of Ids of fixes of type mesh/gran which should be dumpedm of extended particle
       quatw,quati,quatj,quatk = quaternion components for aspherical particles
       tqx,tqy,tqz = torque on extended particles
       c_ID = per-atom vector calculated by a compute with ID
@@ -75,6 +83,14 @@ dump 4b flow custom 100 dump.%.myforce id type c_myF\[3\] v_ke
 dump 2 inner cfg 10 dump.snap.*.cfg id type xs ys zs vx vy vz
 dump snap all cfg 100 dump.config.*.cfg id type xs ys zs id type c_Stress[2]
 dump 1 all xtc 1000 file.xtc :pre
+
+[LIGGGHTS vs. LAMMPS Info:]
+
+Two new styles ({stl} and {mesh/gran/VTK}) are available for dumping 
+granular mesh geometry into STL files or VTK files. The former is used 
+for dumping only the geometry, while the latter command is used to dump 
+the mesh IDs, stress etc- calculated on a granular mesh using the 
+"fix mesh/gran/stressanalysis"_fix_mesh_gran_stressanalysis.html  command.
 
 [Description:]
 
@@ -211,6 +227,31 @@ Note that DCD, XTC, and XYZ formatted files can be read directly by
 program).  We are told VMD will also read LAMMPS {atom} style dump
 files since someone has added a LAMMPS format plug-in to VMD.  It may
 require an initial snapshot from an XYZ formatted file to get started.
+
+The {stl} style dumps active STL geometries defined via 
+"fix mesh/gran"_fix_mesh_gran.html commands into the specified file. 
+If you do not supply the optional list of mesh IDs, all meshes are dumped, 
+irrespective of weather they are used in a "fix wall/gran"_fix_wall_gran.html
+command or not. By specifying a list of mesh IDs you can explicitly 
+choose which meshes to dump. The group-ID is ignored, because the command 
+is not applied to particles, but to mesh geometries. 
+This dump is especially useful if a
+"fix move/mesh/gran"_fix_move_mesh_gran.html is registered. If the position 
+of the mesh is changed over time and you want to dump one file for each dump 
+timestep for post-processing together with the particle data, you should use 
+a filename like 'mydumpfile*.stl'. Note: This series of files can then be 
+post-processed together with the particle dump file converted to VTK in 
+Paraview , www.paraview.org
+
+The {mesh/gran/VTK} style can be used to dumps active mesh geometries 
+defined via "fix mesh/gran"_fix_mesh_gran.html commands. Different keywords 
+can be used to dump the per-triangle stress, id, velocity, wear or 
+stress components into the specified file using a VTK file format. 
+The list of mesh IDs is optional. As with the stl style, all active 
+meshes are dumped if you do not supply the optional list of mesh IDs. 
+By specifying list of mesh IDs you can explicitly choose which meshes 
+to dump. The group-ID is ignored. Again, a series of files can be 
+post-processed in Paraview , www.paraview.org
 
 :line
 

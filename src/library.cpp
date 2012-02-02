@@ -96,6 +96,7 @@ void *lammps_extract(void *ptr, int category, char *id, char *name)
 
   if (category == 0) {
     if (strcmp(name,"dt") == 0) return (void *) &lmp->update->dt;
+    if (strcmp(name,"step") == 0) return (void *) &lmp->update->ntimestep; 
     if (strcmp(name,"boxxlo") == 0) return (void *) &lmp->domain->boxlo[0];
     if (strcmp(name,"boxxhi") == 0) return (void *) &lmp->domain->boxhi[0];
     if (strcmp(name,"boxylo") == 0) return (void *) &lmp->domain->boxlo[1];
@@ -117,6 +118,7 @@ void *lammps_extract(void *ptr, int category, char *id, char *name)
 int lammps_get_natoms(void *ptr)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
+  
   int natoms = static_cast<int> (lmp->atom->natoms);
   return natoms;
 }

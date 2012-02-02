@@ -31,7 +31,7 @@ See the README file in the top-level LAMMPS directory.
 #include "error.h"
 #include "group.h"
 #include "neighbor.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_atom.h"
 
 using namespace LAMMPS_NS;
 
@@ -40,43 +40,45 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-FixPropertyPerAtom::FixPropertyPerAtom(LAMMPS *lmp, int narg, char **arg) :
+FixPropertyAtom::FixPropertyAtom(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
     //Check args
-    if (narg < 9) error->all("Illegal fix property/peratom command, not enough arguments");
-    if (narg > 19) error->warning("Vector length in fix property/peratom larger than 10. Are you sure you want that?");
+    if (narg < 9) error->all("Illegal fix property/atom command, not enough arguments");
+    if (narg > 19) error->warning("Vector length in fix property/atom larger than 10. Are you sure you want that?");
 
     //Read args
     int n = strlen(arg[3]) + 1;
     variablename = new char[n];
     strcpy(variablename,arg[3]);
 
-    if (strcmp(arg[4],"scalar") == 0) vectorStyle = 0;
-    else if (strcmp(arg[4],"vector") == 0) vectorStyle = 1;
-    else error->all("Unknown style for fix property/peratom. Valid styles are scalar or vector");
+    if (strcmp(arg[4],"scalar") == 0) data_style = FIXPROPERTY_ATOM_SCALAR;
+    else if (strcmp(arg[4],"vector") == 0) data_style = FIXPROPERTY_ATOM_VECTOR;
+    else error->all("Unknown style for fix property/atom. Valid styles are 'scalar' or 'vector'");
 
     if (strcmp(arg[5],"yes") == 0) restart_peratom = 1;
     else if (strcmp(arg[5],"no") == 0) restart_peratom = 0;
-    else error->all("Unknown restart style for fix property/peratom. Valid styles are yes or no");
+    else error->all("Unknown restart style for fix property/atom. Valid styles are 'yes' or 'no'");
 
     if (strcmp(arg[6],"yes") == 0) commGhost = 1;
     else if (strcmp(arg[6],"no") == 0) commGhost = 0;
-    else error->all("Unknown communicate_ghost style for fix property/peratom. Valid styles are yes or no");
+    else error->all("Unknown communicate_ghost style for fix property/atom. Valid styles are 'yes' or 'no'");
 
     if (strcmp(arg[7],"yes") == 0) commGhostRev = 1;
     else if (strcmp(arg[7],"no") == 0) commGhostRev = 0;
-    else error->all("Unknown communicate_reverse_ghost style for fix property/peratom. Valid styles are yes or no");
+    else error->all("Unknown communicate_reverse_ghost style for fix property/atom. Valid styles are 'yes' or 'no'");
 
     nvalues = narg - 8;
-    if ((nvalues==1) && (vectorStyle))
-      error->all("Error in fix property/peratom: Number of default values provided not consistent with vector style. Provide more than 1 value or use style 'scalar'");
+    if ((nvalues == 1) && (data_style != FIXPROPERTY_ATOM_SCALAR))
+      error->all("Error in fix property/atom: Number of default values provided not consistent with vector style. Provide more than 1 value or use style 'scalar'");
+
     defaultvalues = new double[nvalues];
 
-    create_attribute = 1; 
+    // fix handles properties that need to be initialized at particle creation
+    create_attribute = 1;
     for (int j = 0; j < nvalues; j++)
     {
-        
+        // if any of the values is none, this fix will not init properties
         if(strcmp(arg[8+j],"none") == 0)
         {
             create_attribute = 0;
@@ -85,7 +87,7 @@ FixPropertyPerAtom::FixPropertyPerAtom(LAMMPS *lmp, int narg, char **arg) :
         defaultvalues[j] = myAtof(arg[8+j]);
     }
 
-    if (vectorStyle) size_peratom_cols = nvalues;
+    if (data_style) size_peratom_cols = nvalues;
     else size_peratom_cols = 0;
 
     peratom_flag=1; 
@@ -102,29 +104,28 @@ FixPropertyPerAtom::FixPropertyPerAtom(LAMMPS *lmp, int narg, char **arg) :
     atom->add_callback(0); 
     if (restart_peratom) atom->add_callback(1); 
 
-    //zero all arrays since dump may access it on timestep 0
-    //or a variable may access it before first run
+    // zero all arrays since dump may access it on timestep 0
+    // or a variable may access it before first run
     
     int nlocal = atom->nlocal;
     if(create_attribute)
     {
         for (int i = 0; i < nlocal; i++)
         {
-          if (vectorStyle) for (int m = 0; m < nvalues; m++) array_atom[i][m] = 0.;
+          if (data_style) for (int m = 0; m < nvalues; m++) array_atom[i][m] = 0.;
           else vector_atom[i]=0.;
         }
     }
 
-    //check if there is already a fix that tries to register a property with the same name
+    // check if there is already a fix that tries to register a property with the same name
     for (int ifix = 0; ifix < modify->nfix; ifix++)
-        if ((strcmp(modify->fix[ifix]->style,style) == 0) && (strcmp(((FixPropertyPerAtom*)(modify->fix[ifix]))->variablename,variablename)==0) )
-            error->all("Error in fix property/peratom. There is already a fix that registers a variable of the same name");
-
+        if ((strcmp(modify->fix[ifix]->style,style) == 0) && (strcmp(((FixPropertyAtom*)(modify->fix[ifix]))->variablename,variablename)==0) )
+            error->all("Error in fix property/atom. There is already a fix that registers a variable of the same name");
 }
 
 /* ---------------------------------------------------------------------- */
 
-FixPropertyPerAtom::~FixPropertyPerAtom()
+FixPropertyAtom::~FixPropertyAtom()
 {
   // unregister callbacks to this fix from Atom class
   atom->delete_callback(id,0);
@@ -134,13 +135,56 @@ FixPropertyPerAtom::~FixPropertyPerAtom()
   delete[] variablename;
   delete[] defaultvalues;
 
-  if (vectorStyle) memory->destroy_2d_double_array(array_atom);
-  else delete[] vector_atom;
+  if (data_style) memory->destroy_2d_double_array(array_atom);
+  else memory->sfree(vector_atom);
 }
 
 /* ---------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::setmask()
+Fix* FixPropertyAtom::check_fix(const char *varname,const char *svmstyle,int len1,int len2,bool errflag)
+{
+    char errmsg[200];
+
+    if(strcmp(varname,variablename) == 0)
+    {
+        if(strcmp(svmstyle,"scalar") == 0) len1 = 1;
+
+        // check variable style
+        if(
+            (strcmp(svmstyle,"scalar") == 0 && data_style != FIXPROPERTY_ATOM_SCALAR) ||
+            (strcmp(svmstyle,"vector") == 0 && data_style != FIXPROPERTY_ATOM_VECTOR)
+        )
+        {
+            if(errflag)
+            {
+                sprintf(errmsg,"%s",svmstyle);
+                strcat(errmsg," style required for fix property/atom variable ");
+                strcat(errmsg,varname);
+                error->all(errmsg);
+            }
+            else return NULL;
+        }
+
+        // check length
+        if(len1 > nvalues)
+        {
+            if(errflag)
+            {
+                sprintf(errmsg,"Fix property/atom variable %s has wrong length (length is %d but length %d expected)",varname,nvalues,len1);
+                error->all(errmsg);
+            }
+            else return NULL;
+        }
+
+        // success
+        return static_cast<Fix*>(this);
+    }
+    return NULL;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int FixPropertyAtom::setmask()
 {
   int mask = 0;
   mask |= PRE_EXCHANGE;
@@ -151,23 +195,23 @@ int FixPropertyPerAtom::setmask()
    forward and backward comm to be used by other fixes as needed
 ------------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::do_forward_comm()
+void FixPropertyAtom::do_forward_comm()
 {
     if (commGhost) comm->forward_comm_fix(this);
-    else error->all("forward_comm invoked, but not registered");
+    else error->all("FixPropertyAtom: Faulty implementation - forward_comm invoked, but not registered");
 }
 
-void FixPropertyPerAtom::do_reverse_comm()
+void FixPropertyAtom::do_reverse_comm()
 {
    if (commGhostRev)  comm->reverse_comm_fix(this);
-   else error->all("reverse_comm invoked, but not registered");
+   else error->all("FixPropertyAtom: Faulty implementation - reverse_comm invoked, but not registered");
 }
 
 /* ----------------------------------------------------------------------
    memory usage of local atom-based arrays
 ------------------------------------------------------------------------- */
 
-double FixPropertyPerAtom::memory_usage()
+double FixPropertyAtom::memory_usage()
 {
   int nmax = atom->nmax;
   double bytes = nmax * nvalues * sizeof(double);
@@ -178,19 +222,19 @@ double FixPropertyPerAtom::memory_usage()
    allocate local atom-based arrays
 ------------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::grow_arrays(int nmax)
+void FixPropertyAtom::grow_arrays(int nmax)
 {
-  if (vectorStyle) array_atom = memory->grow_2d_double_array(array_atom,nmax,nvalues,"FixPropertyPerAtom:array_atom");
-  else vector_atom = (double*)(lmp->memory->srealloc(vector_atom, nmax*sizeof(double), "FixPropertyPerAtom:vector_atom"));
+  if (data_style) array_atom = memory->grow_2d_double_array(array_atom,nmax,nvalues,"FixPropertyAtom:array_atom");
+  else vector_atom = (double*)(lmp->memory->srealloc(vector_atom, nmax*sizeof(double), "FixPropertyAtom:vector_atom"));
 }
 
 /* ----------------------------------------------------------------------
    copy values within local atom-based arrays
 ------------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::copy_arrays(int i, int j)
+void FixPropertyAtom::copy_arrays(int i, int j)
 {
-    if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[j][k]=array_atom[i][k];
+    if (data_style) for(int k=0;k<nvalues;k++) array_atom[j][k]=array_atom[i][k];
     else vector_atom[j]=vector_atom[i];
 }
 
@@ -198,9 +242,9 @@ void FixPropertyPerAtom::copy_arrays(int i, int j)
    initialize one atom's array values, called when atom is created
 ------------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::set_arrays(int i)
+void FixPropertyAtom::set_arrays(int i)
 {
-    if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[i][k]=defaultvalues[k];
+    if (data_style) for(int k=0;k<nvalues;k++) array_atom[i][k]=defaultvalues[k];
     else vector_atom[i]=defaultvalues[0];
 }
 
@@ -208,9 +252,9 @@ void FixPropertyPerAtom::set_arrays(int i)
    pack values in local atom-based arrays for exchange with another proc
 ------------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::pack_exchange(int i, double *buf)
+int FixPropertyAtom::pack_exchange(int i, double *buf)
 {
-    if (vectorStyle) for(int k=0;k<nvalues;k++) buf[k] = array_atom[i][k];
+    if (data_style) for(int k=0;k<nvalues;k++) buf[k] = array_atom[i][k];
     else buf[0] = vector_atom[i];
     return nvalues;
 }
@@ -219,9 +263,9 @@ int FixPropertyPerAtom::pack_exchange(int i, double *buf)
    unpack values into local atom-based arrays after exchange
 ------------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::unpack_exchange(int nlocal, double *buf)
+int FixPropertyAtom::unpack_exchange(int nlocal, double *buf)
 {
-    if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[nlocal][k]=buf[k];
+    if (data_style) for(int k=0;k<nvalues;k++) array_atom[nlocal][k]=buf[k];
     else vector_atom[nlocal]=buf[0];
     return nvalues;
 }
@@ -230,10 +274,10 @@ int FixPropertyPerAtom::unpack_exchange(int nlocal, double *buf)
    pack values in local atom-based arrays for restart file
 ------------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::pack_restart(int i, double *buf)
+int FixPropertyAtom::pack_restart(int i, double *buf)
 {
   buf[0] = nvalues+1;
-  if (vectorStyle) for(int k=0;k<nvalues;k++) buf[k+1] = array_atom[i][k];
+  if (data_style) for(int k=0;k<nvalues;k++) buf[k+1] = array_atom[i][k];
   else buf[1] = vector_atom[i];
 
   return (nvalues+1);
@@ -243,7 +287,7 @@ int FixPropertyPerAtom::pack_restart(int i, double *buf)
    unpack values from atom->extra array to restart the fix
 ------------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::unpack_restart(int nlocal, int nth)
+void FixPropertyAtom::unpack_restart(int nlocal, int nth)
 {
   double **extra = atom->extra;
 
@@ -253,7 +297,7 @@ void FixPropertyPerAtom::unpack_restart(int nlocal, int nth)
   for (int i = 0; i < nth; i++) m += static_cast<int> (extra[nlocal][m]);
   m++;
 
-  if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[nlocal][k] = extra[nlocal][m++];
+  if (data_style) for(int k=0;k<nvalues;k++) array_atom[nlocal][k] = extra[nlocal][m++];
   else vector_atom[nlocal] = extra[nlocal][m++];
 }
 
@@ -261,7 +305,7 @@ void FixPropertyPerAtom::unpack_restart(int nlocal, int nth)
    maxsize of any atom's restart data
 ------------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::maxsize_restart()
+int FixPropertyAtom::maxsize_restart()
 {
   return nvalues+1;
 }
@@ -270,7 +314,7 @@ int FixPropertyPerAtom::maxsize_restart()
    size of atom nlocal's restart data
 ------------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::size_restart(int nlocal)
+int FixPropertyAtom::size_restart(int nlocal)
 {
   return nvalues+1;
 }
@@ -279,7 +323,7 @@ int FixPropertyPerAtom::size_restart(int nlocal)
 
 /* ---------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::pack_comm(int n, int *list, double *buf,
+int FixPropertyAtom::pack_comm(int n, int *list, double *buf,
 			     int pbc_flag, int *pbc)
 {
     int i,j;
@@ -287,7 +331,7 @@ int FixPropertyPerAtom::pack_comm(int n, int *list, double *buf,
     int m = 0;
     for (i = 0; i < n; i++) {
       j = list[i];
-      if (vectorStyle) for(int k=0;k<nvalues;k++) buf[m++] = array_atom[j][k];
+      if (data_style) for(int k=0;k<nvalues;k++) buf[m++] = array_atom[j][k];
       else buf[m++] = vector_atom[j];
     }
     return nvalues;
@@ -295,13 +339,13 @@ int FixPropertyPerAtom::pack_comm(int n, int *list, double *buf,
 
 /* ---------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::unpack_comm(int n, int first, double *buf)
+void FixPropertyAtom::unpack_comm(int n, int first, double *buf)
 {
   int i,m,last;
   m = 0;
   last = first + n;
   for (i = first; i < last; i++) {
-      if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[i][k]=buf[m++];
+      if (data_style) for(int k=0;k<nvalues;k++) array_atom[i][k]=buf[m++];
       else vector_atom[i]=buf[m++];
   }
 
@@ -309,13 +353,13 @@ void FixPropertyPerAtom::unpack_comm(int n, int first, double *buf)
 
 /* ---------------------------------------------------------------------- */
 
-int FixPropertyPerAtom::pack_reverse_comm(int n, int first, double *buf)
+int FixPropertyAtom::pack_reverse_comm(int n, int first, double *buf)
 {
   int i,m,last;
   m = 0;
   last = first + n;
   for (i = first; i < last; i++) {
-    if (vectorStyle) for(int k=0;k<nvalues;k++) buf[m++] = array_atom[i][k];
+    if (data_style) for(int k=0;k<nvalues;k++) buf[m++] = array_atom[i][k];
     else buf[m++] = vector_atom[i];
   }
   return nvalues;
@@ -323,15 +367,14 @@ int FixPropertyPerAtom::pack_reverse_comm(int n, int first, double *buf)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPropertyPerAtom::unpack_reverse_comm(int n, int *list, double *buf)
+void FixPropertyAtom::unpack_reverse_comm(int n, int *list, double *buf)
 {
   int i,j,m = 0;
   for (i = 0; i < n; i++) {
     j = list[i];
-    if (vectorStyle) for(int k=0;k<nvalues;k++) array_atom[j][k]+=buf[m++];
+    if (data_style) for(int k=0;k<nvalues;k++) array_atom[j][k]+=buf[m++];
     else vector_atom[j]+=buf[m++];
   }
 }
 
 /* ---------------------------------------------------------------------- */
-

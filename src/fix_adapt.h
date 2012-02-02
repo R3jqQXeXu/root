@@ -52,7 +52,7 @@ class FixAdapt : public Fix {
   int *pairindex;
   int *awhich;
 
-  class FixPropertyPerAtom *fppat;
+  class FixPropertyAtom *fppat;
   char fixid[100];
   int atomstyle_flag;
 };

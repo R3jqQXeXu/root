@@ -23,6 +23,12 @@ See the README file in the top-level LAMMPS directory.
 
 #include "mpi.h"
 
+/* ---------------------------------------------------------------------- */
+
+// a poor man's inline MPI wrappers for LIGGGHTS
+
+/* ---------------------------------------------------------------------- */
+
 namespace MyMPI {
 
   inline void My_MPI_Sum_Vector(double *vector,int,MPI_Comm comm);
@@ -31,18 +37,15 @@ namespace MyMPI {
 
   inline void My_MPI_Sum_Vector(int *vector,int,MPI_Comm comm);
   inline void My_MPI_Sum_Scalar(int &scalar,MPI_Comm comm);
+  inline void My_MPI_Sum_Scalar(int &scalar,int &scalar_all,MPI_Comm comm);
 
   inline void My_MPI_Min_Scalar(double &scalar,MPI_Comm comm);
+  inline void My_MPI_Min_Scalar(int &scalar,MPI_Comm comm);
+
   inline void My_MPI_Max_Scalar(double &scalar,MPI_Comm comm);
+  inline void My_MPI_Max_Scalar(int &scalar,MPI_Comm comm);
 
 };
-
-/* ---------------------------------------------------------------------- */
-
-// a poor man's inline MPI wrappers for LIGGGHTS
-
-/* ---------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------- */
 
 inline void MyMPI::My_MPI_Sum_Vector(double *vector,int len, MPI_Comm comm)
 {
@@ -82,9 +85,16 @@ inline void MyMPI::My_MPI_Sum_Vector(int *vector,int len,MPI_Comm comm)
 
 inline void MyMPI::My_MPI_Sum_Scalar(int &scalar,MPI_Comm comm)
 {
-    double scalar_all;
+    int scalar_all;
     MPI_Allreduce(&scalar,&scalar_all,1,MPI_INT,MPI_SUM,comm);
     scalar = scalar_all;
+}
+
+/* ---------------------------------------------------------------------- */
+
+inline void MyMPI::My_MPI_Sum_Scalar(int &scalar,int &scalar_all,MPI_Comm comm)
+{
+    MPI_Allreduce(&scalar,&scalar_all,1,MPI_INT,MPI_SUM,comm);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -102,6 +112,24 @@ inline void MyMPI::My_MPI_Max_Scalar(double &scalar,MPI_Comm comm)
 {
     double scalar_all;
     MPI_Allreduce(&scalar,&scalar_all,1,MPI_DOUBLE,MPI_MAX,comm);
+    scalar = scalar_all;
+}
+
+/* ---------------------------------------------------------------------- */
+
+inline void MyMPI::My_MPI_Min_Scalar(int &scalar,MPI_Comm comm)
+{
+    int scalar_all;
+    MPI_Allreduce(&scalar,&scalar_all,1,MPI_INT,MPI_MIN,comm);
+    scalar = scalar_all;
+}
+
+/* ---------------------------------------------------------------------- */
+
+inline void MyMPI::My_MPI_Max_Scalar(int &scalar,MPI_Comm comm)
+{
+    int scalar_all;
+    MPI_Allreduce(&scalar,&scalar_all,1,MPI_INT,MPI_MAX,comm);
     scalar = scalar_all;
 }
 

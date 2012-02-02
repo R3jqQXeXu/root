@@ -32,13 +32,7 @@ class Input : protected Pointers {
   char *one(const char *);       // process a single command
   void substitute(char *, int);  // substitute for variables in a string
 
-  void stlfile(class FixMeshGran *);                    // process stl file modified C.K.
-  void stlfile(const char *,class FixMeshGran *);       // process stl file modified C.K.
-
-  int clmpfile(double **,double*,int);                 // modified C.K.
-  void clmpfile(const char *,double **,double*,int);    // modified C.K.
-
- private:
+ protected: //modified C.K.
   int me;                      // proc ID
   char *command;               // ptr to current command
   int maxarg;                  // max # of args in arg
@@ -51,12 +45,11 @@ class Input : protected Pointers {
   int jump_skip;               // 1 if skipping next jump, 0 otherwise
 
   FILE **infiles;              // list of open input files
-  FILE *stl___file;            // stl file modified C.K.
-  FILE *clmp___file;          // modified C.K.
+  FILE *nonlammps_file;        // nonlammps file modified C.K.
 
   void parse();                // parse an input text line
-  void stlparse();             // parse an stl file modified C.K.
-  void clmpparse();            // modified C.K.
+  void parse_nonlammps();      // parse a nonlammps file modified C.K.
+
   int execute_command();       // execute a single command
 
   void clear();                // input script commands

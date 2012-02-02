@@ -33,6 +33,7 @@
 #include "pair_lj_smooth.h"
 #include "pair_morse.h"
 #include "pair_soft.h"
+#include "pair_sph.h"
 #include "pair_sw.h"
 #include "pair_table.h"
 #include "pair_tersoff.h"

@@ -21,8 +21,8 @@ See the README file in the top-level LAMMPS directory.
 #ifdef FIX_CLASS
 
 FixStyle(property/global,FixPropertyGlobal)
-FixStyle(property/peratomtype,FixPropertyGlobal)
-FixStyle(property/peratomtypepair,FixPropertyGlobal)
+FixStyle(property/atomtype,FixPropertyGlobal)
+FixStyle(property/atomtypepair,FixPropertyGlobal)
 
 #else
 
@@ -33,12 +33,13 @@ FixStyle(property/peratomtypepair,FixPropertyGlobal)
 
 namespace LAMMPS_NS {
 
-  enum {
-        FIXPROPERTYTYPE_GLOBAL_SCALAR=0,
-        FIXPROPERTYTYPE_GLOBAL_VECTOR=1,
-        FIXPROPERTYTYPE_GLOBAL_MATRIX=2
-  };
-  
+enum
+{
+        FIXPROPERTY_GLOBAL_SCALAR = 0,
+        FIXPROPERTY_GLOBAL_VECTOR = 1,
+        FIXPROPERTY_GLOBAL_MATRIX = 2
+};
+
 class FixPropertyGlobal : public Fix {
  friend class Modify;
  friend class MechParamGran;
@@ -50,6 +51,8 @@ class FixPropertyGlobal : public Fix {
   int setmask();
   void init();
 
+  Fix* check_fix(const char *varname,const char *svmstyle,int len1,int len2,bool errflag);
+
   double memory_usage();
   double compute_scalar();
   double compute_vector(int);
@@ -60,7 +63,7 @@ class FixPropertyGlobal : public Fix {
   void array_modify(int,int,double);
   void new_array(int l1,int l2);
 
-  bool checkCorrectness(int,char*,int,int);
+  //bool checkCorrectness(int,char*,int,int);
 
   const double* get_values() {return values;}
   const double* get_values_modified() {return values_recomputed;}
@@ -69,11 +72,11 @@ class FixPropertyGlobal : public Fix {
 
   void grow(int,int);
 
-  char *variablename;   
-  int svmStyle;      
+  char *variablename;   // name of the variable (used for identification by other fixes)
+  int data_style;         // 0 if a scalar is registered, 1 if vector, 2 if 2d array (matrix)
   int nvalues;
-  double *values; 
-  double *values_recomputed; 
+  double *values;            // original values to be stored in this fix
+  double *values_recomputed; // values to be stored in this fix, recomputed by eg another fix
   double **array;
   double **array_recomputed;
 

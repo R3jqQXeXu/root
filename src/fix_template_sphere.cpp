@@ -30,13 +30,14 @@ See the README file in the top-level LAMMPS directory.
 #include "error.h"
 #include "random_park.h"
 #include "particleToInsert.h"
+#include "region.h"
 #include "domain.h"
 #include "comm.h"
+#include "myvector.h"
+#include "fix_region_variable.h"
 
 using namespace LAMMPS_NS;
-
-#define MIN(A,B) ((A) < (B)) ? (A) : (B)
-#define MAX(A,B) ((A) > (B)) ? (A) : (B)
+using namespace LMP_PROBABILITY_NS;
 
 #define LMP_DEBUGMODE_SPHERE false
 
@@ -51,104 +52,154 @@ FixTemplateSphere::FixTemplateSphere(LAMMPS *lmp, int narg, char **arg) :
 
   // random number generator, same for all procs
   if (narg < 4) error->all("Illegal fix particletemplate command, not enough arguments");
-  seed=atoi(arg[3]);
+  seed = atoi(arg[3]);
   random = new RanPark(lmp,seed);
-  PI = 4.0*atan(1.0);
+
   iarg = 4;
 
-  if(strcmp(this->style,"particletemplate/sphere")==0) nspheres=1;
-  else
-  {
-      if (strcmp(arg[iarg++],"nspheres") != 0) error->all("Illegal fix particletemplate command, expecting argument 'nspheres'");
-      nspheres=atoi(arg[iarg++]);
-  }
-  x_sphere=NULL;
-  x_sphere_b=NULL;
-  r_sphere=new double[nspheres];
+  // set default values
+  atom_type = 1;
 
-  //set default values
-  atom_type=1;
-  density1=1.;
-  density2=0.;
-  density_randstyle=RAN_STYLE_CONSTANT_FTS;
-  r_sphere[0]=1.;
-  radius2=1.;
-  radius_randstyle=RAN_STYLE_CONSTANT_FTS;
+  pdf_radius = NULL;
+  pdf_density = NULL;
 
-  pti=new ParticleToInsert(lmp,nspheres);
+  pti = new ParticleToInsert(lmp);
+
+  n_pti_max = 0;
+  pti_list = NULL;
+
+  reg = NULL;
+  reg_var = NULL;
 
   //parse further args
-  while (iarg < narg) {
-    if (strcmp(arg[iarg],"atom_type") == 0) {
+  bool hasargs = true;
+  while (iarg < narg && hasargs)
+  {
+    hasargs = false;
+    if (strcmp(arg[iarg],"atom_type") == 0)
+    {
       if (iarg+2 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
       atom_type=atoi(arg[iarg+1]);
       if (atom_type < 1) error->all("Illegal fix particletemplate command, invalid atom type (must be >=1)");
+      hasargs = true;
       iarg += 2;
     }
-    else if (strcmp(arg[iarg],"density") == 0) {
-      if (iarg+3 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
-      if (strcmp(arg[iarg+1],"constant")==0) density_randstyle=RAN_STYLE_CONSTANT_FTS;
-      else if (strcmp(arg[iarg+1],"uniform")==0) density_randstyle=RAN_STYLE_UNIFORM_FTS;
-      else if (strcmp(arg[iarg+1],"gaussian")==0) density_randstyle=RAN_STYLE_GAUSSIAN_FTS;
-
-      density1=atof(arg[iarg+2]);
-      if(density_randstyle!=RAN_STYLE_CONSTANT_FTS)
-      {
-          if (iarg+3 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
-          density2=atof(arg[iarg+3]);
-          iarg++;
-      }
-      if (density1 < 0 || density2 < 0) error->all("Illegal fix particletemplate command, invalid density");
-      iarg += 3;
+    else if (strcmp(arg[iarg],"region") == 0)
+    {
+      if (iarg+2 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
+      int ireg = domain->find_region(arg[iarg+1]);
+      if (ireg < 0) error->all("Illegal fix particletemplate command, illegal region");
+      reg = domain->regions[ireg];
+      hasargs = true;
+      iarg += 2;
+    }
+    else if (strcmp(arg[iarg],"region_variable") == 0)
+    {
+      if (iarg+2 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
+      int ifix = modify->find_fix(arg[iarg+1]);
+      if (ifix < 0) error->all("Illegal fix particletemplate command, illegal region/variable fix");
+      reg_var = static_cast<FixRegionVariable*>(modify->fix[ifix]);
+      hasargs = true;
+      iarg += 2;
     }
     else if (strcmp(arg[iarg],"radius") == 0) {
-      if(strcmp(this->style,"particletemplate/sphere")!=0) error->all("Illegal fix particletemplate command, keyword radius only valid for particletemplate/sphere");
+      hasargs = true;
+      if(strcmp(this->style,"particletemplate/sphere")) error->all("Illegal fix particletemplate command, keyword radius only valid for particletemplate/sphere");
       if (iarg+3 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
-      if (strcmp(arg[iarg+1],"constant")==0) radius_randstyle=RAN_STYLE_CONSTANT_FTS;
-      else if (strcmp(arg[iarg+1],"uniform")==0) radius_randstyle=RAN_STYLE_UNIFORM_FTS;
-      else if (strcmp(arg[iarg+1],"gaussian")==0) radius_randstyle=RAN_STYLE_GAUSSIAN_FTS;
-
-      r_sphere[0]=atof(arg[iarg+2]);
-      if(r_sphere[0]<=0.) error->all("Illegal fix particletemplate/sphere command, radius must be >0");
-      if(radius_randstyle!=RAN_STYLE_CONSTANT_FTS)
+      pdf_radius = new PDF(error);
+      if (strcmp(arg[iarg+1],"constant") == 0)
       {
-          if (iarg+3 > narg) error->all("Illegal fix particletemplate command, not enough arguments");
-          radius2=atof(arg[iarg+3]);
-          if(radius_randstyle==RAN_STYLE_UNIFORM_FTS) radius2=radius2/r_sphere[0];
-          iarg++;
+          double value = atof(arg[iarg+2]);
+          if( value <= 0.) error->all("Illegal fix particletemplate/sphere command, radius must be >= 0");
+          pdf_radius->set_params<RANDOM_CONSTANT>(value);
+          iarg += 3;
       }
-      if (r_sphere[0] < 0) error->all("Illegal fix particletemplate command, invalid radius");
-      iarg += 3;
+      else if (strcmp(arg[iarg+1],"uniform") == 0)
+      {
+          if (iarg+4 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
+          double min = atof(arg[iarg+2]);
+          double max = atof(arg[iarg+3]);
+          if( min <= 0. || max <= 0. || min >= max) error->all("Illegal fix particletemplate/sphere command, illegal min or max value for radius");
+          pdf_radius->set_params<RANDOM_UNIFORM>(min,max);
+          iarg += 4;
+      }
+      else if (strcmp(arg[iarg+1],"lognormal") == 0)
+      {
+          if (iarg+4 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
+          double mu = atof(arg[iarg+2]);
+          double sigma = atof(arg[iarg+3]);
+          if( mu <= 0. ) error->all("Illegal fix particletemplate/sphere command, illegal mu value for radius");
+          if( sigma <= 0. ) error->all("Illegal fix particletemplate/sphere command, illegal sigma value for radius");
+          pdf_radius->set_params<RANDOM_LOGNORMAL>(mu,sigma);
+          iarg += 4;
+      }
+      else error->all("Illegal fix particletemplate command, invalid radius random style");
+      //use mass distribution instead of number distribution
+      pdf_radius->activate_mass_shift();
+      volume_expect = 4.*expectancy(pdf_radius)*expectancy(pdf_radius)*expectancy(pdf_radius)*M_PI/3.;
     }
-    else if (strcmp(arg[iarg],"spheres")==0||strcmp(arg[iarg],"ntry")==0) break;
-    else error->all("Illegal fix particletemplate command, unrecognized keyword");
+    else if (strcmp(arg[iarg],"density") == 0) {
+      hasargs = true;
+      if (iarg+3 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
+      pdf_density = new PDF(error);
+      if (strcmp(arg[iarg+1],"constant") == 0)
+      {
+          double value = atof(arg[iarg+2]);
+          if( value <= 0.) error->all("Illegal fix particletemplate/sphere command, density must be >= 0");
+          pdf_density->set_params<RANDOM_CONSTANT>(value);
+          iarg += 3;
+      }
+      else if (strcmp(arg[iarg+1],"uniform") == 0)
+      {
+          if (iarg+4 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
+          double min = atof(arg[iarg+2]);
+          double max = atof(arg[iarg+3]);
+          if( min <= 0. || max <= 0. || min >= max) error->all("Illegal fix particletemplate/sphere command, illegal min or max value for density");
+          pdf_density->set_params<RANDOM_UNIFORM>(min,max);
+          iarg += 4;
+      }
+      else if (strcmp(arg[iarg+1],"lognormal") == 0)
+      {
+          if (iarg+4 > narg) error->all("Illegal fix particletemplate/sphere command, not enough arguments");
+          double mu = atof(arg[iarg+2]);
+          double sigma = atof(arg[iarg+3]);
+          if( mu <= 0. ) error->all("Illegal fix particletemplate/sphere command, illegal mu value for density");
+          if( sigma <= 0. ) error->all("Illegal fix particletemplate/sphere command, illegal sigma value for density");
+          pdf_density->set_params<RANDOM_LOGNORMAL>(mu,sigma);
+          iarg += 4;
+      }
+      else error->all("Illegal fix particletemplate command, invalid density random style");
+      
+    }
+    else if(strcmp(style,"particletemplate/sphere") == 0) error->all("Illegal fix particletemplate command, unrecognized keyword");
   }
 
-  if(strcmp(this->style,"particletemplate/sphere")!=0)return;
+  if(pdf_density == NULL) error->all("Illegal fix particletemplate command, have to define 'density'");
+
+  // end here for derived classes
+  if(strcmp(this->style,"particletemplate/sphere"))return;
+
+  if(pdf_radius == NULL) error->all("Illegal fix particletemplate command, have to define 'radius'");
 
   //set mass and volume
-  volume=pow((2.*r_sphere[0]),3.)*PI/6.;
-  mass=density1*volume;
-
-  //copy the values to public
-  pti->nspheres=nspheres;
-  pti->density_ins=density1;
-  pti->volume_ins=volume;
-  pti->mass_ins=mass;
-  pti->radius_ins[0]=r_sphere[0];
-  pti->r_bound=r_sphere[0];
-  for (int i=0;i<3;i++) pti->x_ins[0][i]=0.;
-
-  pti->atom_type=atom_type;
+  volume_expect = pow(2.*expectancy(pdf_radius),3.)*M_PI/6.;
+  mass_expect = expectancy(pdf_density) * volume_expect;
 }
 
 /* ---------------------------------------------------------------------- */
 
 FixTemplateSphere::~FixTemplateSphere()
 {
-    delete []r_sphere;
     delete random;
-    delete pti;
+
+    delete pdf_density;
+    delete pdf_radius;
+
+    if(strcmp(style,"particletemplate/sphere") == 0)
+    {
+        delete pti;
+        if(pti_list) delete_ptilist();
+    }
 }
 
 /* ----------------------------------------------------------------------*/
@@ -161,109 +212,134 @@ int FixTemplateSphere::setmask()
 
 /* ----------------------------------------------------------------------*/
 
-void FixTemplateSphere::randomize()
+Region* FixTemplateSphere::region()
 {
-   randomize_r();
-   randomize_dens();
-   
+    if(reg_var) return reg_var->region();
+    else return reg;
 }
 
 /* ----------------------------------------------------------------------*/
 
-inline void FixTemplateSphere::randomize_r()
+void FixTemplateSphere::randomize_single()
 {
-   if (radius_randstyle==RAN_STYLE_CONSTANT_FTS) return;
+    
+    pti->atom_type = atom_type;
 
-   //use distribution based on mass-%
-   if (radius_randstyle==RAN_STYLE_UNIFORM_FTS)
-   {
-       double rn = random->uniform();
-       rn = rn*rn*rn;
-       pti->radius_ins[0]=r_sphere[0]+(radius2*r_sphere[0]-r_sphere[0])*rn;
-   }
-   else if (radius_randstyle==RAN_STYLE_GAUSSIAN_FTS)
-   {
-       error->all("Random style gaussian not available for radius");//how to do transformation to mass %??
-       double rn = random->gaussian();
-       pti->radius_ins[0]=r_sphere[0]+(radius2*r_sphere[0]-r_sphere[0])*rn;
-       if(pti->radius_ins[0]<0)
-       {
-           pti->radius_ins[0]=r_sphere[0]/10.;
-           error->warning("Insertion radius value generated is <0, assuming some value");
-       }
-   }
-   pti->r_bound=pti->radius_ins[0];
+    // randomize radius
+    double radius = rand(pdf_radius,random);
+    pti->radius_ins[0] = pti->r_bound_ins = radius;
+
+    // randomize density
+    pti->density_ins = rand(pdf_density,random);
+
+    // calculate volume and mass
+    pti->volume_ins = radius * radius * radius * 4.*M_PI/3.;
+    pti->mass_ins = pti->density_ins*pti->volume_ins;
+
+    // init insertion position
+    vectorZeroize3D(pti->x_ins[0]);
+
+    pti->groupbit = groupbit;
+
 }
+
+/* ----------------------------------------------------------------------*/
+
+void FixTemplateSphere::init_ptilist(int n_random_max)
+{
+    if(pti_list) error->all("invalid FixTemplateSphere::init_list()");
+    n_pti_max = n_random_max;
+    pti_list = (ParticleToInsert**) memory->smalloc(n_pti_max*sizeof(ParticleToInsert*),"pti_list");
+    for(int i = 0; i < n_pti_max; i++)
+       pti_list[i] = new ParticleToInsert(lmp);
+}
+
+/* ----------------------------------------------------------------------*/
+
+void FixTemplateSphere::delete_ptilist()
+{
+    if(n_pti_max == 0) return;
+
+    for(int i = 0; i < n_pti_max; i++)
+       delete pti_list[i];
+
+    memory->sfree(pti_list);
+    pti_list = NULL;
+    n_pti_max = 0;
+}
+
+/* ----------------------------------------------------------------------*/
+
+void FixTemplateSphere::randomize_ptilist(int n_random,int distribution_groupbit)
+{
+    for(int i = 0; i < n_random; i++)
+    {
+        
+        pti_list[i]->atom_type = atom_type;
+
+        // randomize radius
+        double radius = rand(pdf_radius,random);
+
+        pti_list[i]->radius_ins[0] = pti_list[i]->r_bound_ins = radius;
+
+        // randomize density
+        pti_list[i]->density_ins = rand(pdf_density,random);
+
+        // calculate volume and mass
+        pti_list[i]->volume_ins = radius * radius * radius * 4.*M_PI/3.;
+        pti_list[i]->mass_ins = pti_list[i]->density_ins*pti_list[i]->volume_ins;
+
+        // init insertion position
+        vectorZeroize3D(pti_list[i]->x_ins[0]);
+        vectorZeroize3D(pti_list[i]->v_ins);
+        vectorZeroize3D(pti_list[i]->omega_ins);
+
+        pti_list[i]->groupbit = groupbit | distribution_groupbit; 
+    }
+    
+}
+
+/* ----------------------------------------------------------------------*/
 
 double FixTemplateSphere::max_rad()
 {
-    double maxrad=0.;
-    for(int j=0;j<nspheres;j++)
-          if(r_sphere[j]>maxrad) maxrad=r_sphere[j];
-
-    if (radius_randstyle==RAN_STYLE_CONSTANT_FTS) return maxrad;
-    if (radius_randstyle==RAN_STYLE_UNIFORM_FTS) return radius2*maxrad;
-    if (radius_randstyle==RAN_STYLE_GAUSSIAN_FTS) error->all("Random style gaussian not available for radius");
-    return 0.;
-
+    return pdf_max(pdf_radius);
 }
 
 /* ----------------------------------------------------------------------*/
 
-inline void FixTemplateSphere::randomize_dens()
+double FixTemplateSphere::max_r_bound()
 {
-   if (density_randstyle==RAN_STYLE_CONSTANT_FTS) return;
-   else if (density_randstyle==RAN_STYLE_UNIFORM_FTS)
-   {
-       pti->density_ins=density1+(density2-density1)*(random->uniform());
-   }
-   else if (density_randstyle==RAN_STYLE_GAUSSIAN_FTS)
-   {
-       pti->density_ins=density1+density2*(random->gaussian());
-       if(pti->density_ins<0)
-       {
-           pti->density_ins=density1/10.;
-           error->warning("density value generated is <0, assuming some value");
-       }
-   }
-
-   pti->volume_ins=pow((2.*pti->radius_ins[0]),3.)*PI/6.;
-   pti->mass_ins=pti->density_ins*pti->volume_ins;
+    return pdf_max(pdf_radius);
 }
 
 /* ----------------------------------------------------------------------*/
-//volume expectancy for different random styles
-//uniform:  param 1 = low  param 2 = high
-//gaussian: param 1 = mu   param 2 = sigma
 
 double FixTemplateSphere::volexpect()
 {
-    double param_1=r_sphere[0];
-    double param_2=radius2;
-    if (radius_randstyle==RAN_STYLE_UNIFORM_FTS) param_2=r_sphere[0]*radius2;
-
-    if(radius_randstyle==RAN_STYLE_CONSTANT_FTS)
-      return volume;
-
-    if(radius_randstyle==RAN_STYLE_UNIFORM_FTS)
-      return (PI/3.0 * (pow(param_2,4.)-pow(param_1,4.))/(param_2-param_1));
-
-    if(radius_randstyle==RAN_STYLE_GAUSSIAN_FTS)
-      return (4.*PI/3.*param_1*(param_1*param_1+3.*param_2*param_2));
+    if(volume_expect < 1e-12) error->all("Fix template/sphere: Volume expectancy too small");
+    return volume_expect;
 }
 
 /* ----------------------------------------------------------------------*/
 
 double FixTemplateSphere::massexpect()
 {
-    if      (density_randstyle==RAN_STYLE_CONSTANT_FTS)
-      return density1*volexpect();
+    return mass_expect;
+}
 
-    else if (density_randstyle==RAN_STYLE_UNIFORM_FTS)
-      return 0.5*(density1+density2)*volexpect();
+/* ----------------------------------------------------------------------*/
 
-    else if (density_randstyle==RAN_STYLE_GAUSSIAN_FTS)
-      return density1*volexpect();
+int FixTemplateSphere::number_spheres()
+{
+    return 1;
+}
+
+/* ----------------------------------------------------------------------*/
+
+int FixTemplateSphere::type()
+{
+    return atom_type;
 }
 
 /* ----------------------------------------------------------------------

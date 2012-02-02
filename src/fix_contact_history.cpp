@@ -25,8 +25,8 @@ See the README file in the top-level LAMMPS directory.
 #include "atom.h"
 #include "neighbor.h"
 #include "neigh_list.h"
+#include "pair_gran.h"
 #include "force.h"
-#include "pair.h"
 #include "update.h"
 #include "modify.h"
 #include "memory.h"
@@ -56,7 +56,8 @@ FixContactHistory::FixContactHistory(LAMMPS *lmp, int narg, char **arg) :
 
   int iarg = 4;
   newtonflag = new int[dnum];
-  history_id = new char*[dnum];
+  //history_id = new char*[dnum];
+  history_id = (char**) memory->smalloc((dnum)*sizeof(char*),"FixContactHistory:history_id");
   for(int i = 0 ; i < dnum; i++)
   {
     
@@ -109,10 +110,10 @@ FixContactHistory::~FixContactHistory()
   memory->destroy_2d_int_array(partner);
   memory->destroy_3d_double_array(contacthistory);
 
-  delete []newtonflag;
+  delete[]newtonflag;
 
   for(int i = 0; i < dnum; i++) delete [](history_id[i]);
-  delete history_id;
+  memory->sfree(history_id);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -130,6 +131,9 @@ void FixContactHistory::init()
 {
     if (atom->tag_enable == 0)
       error->all("Pair style granular with history requires atoms have IDs");
+
+    if(!force->pair_match("gran", 0)) error->all("Please use a granular pair style for fix contacthistory");
+    pair_gran = static_cast<PairGran*>(force->pair_match("gran", 0));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -156,11 +160,11 @@ void FixContactHistory::pre_exchange()
   int nlocal = atom->nlocal;
   for (i = 0; i < nlocal; i++) npartner[i] = 0;
 
-  // copy shear info from neighbor list atoms to atom arrays
+  // copy contact info from neighbor list atoms to atom arrays
 
   int *tag = atom->tag;
 
-  NeighList *list = pair->list;
+  NeighList *list = pair_gran->list;
   inum = list->inum;
   ilist = list->ilist;
   numneigh = list->numneigh;
@@ -228,14 +232,14 @@ double FixContactHistory::memory_usage()
 void FixContactHistory::grow_arrays(int nmax)
 {
   npartner = (int *) memory->srealloc(npartner,nmax*sizeof(int),
-				      "shear_history:npartner");
+				      "contacthistory:npartner");
 
   partner = memory->grow_2d_int_array(partner,nmax,maxtouch,
-				      "shear_history:partner");
+				      "contacthistory:partner");
   //fprintf(screen,"nmax=%d, maxtouch=%d\n",nmax,maxtouch);
   contacthistory =
     memory->grow_3d_double_array(contacthistory,nmax,maxtouch,dnum,
-				 "shear_history:contacthistory");
+				 "contact_history:contacthistory");
 }
 
 /* ----------------------------------------------------------------------
@@ -251,16 +255,17 @@ void FixContactHistory::grow_arrays_maxtouch(int nmax)
   }
 
   int **partner_g = memory->create_2d_int_array(nmax,maxtouch+DELTA_MAXTOUCH,
-				      "shear_history:partner_g");
+				      "contacthistory:partner_g");
   double ***contacthistory_g =
     memory->create_3d_double_array(nmax,maxtouch+DELTA_MAXTOUCH,dnum,"shear_history:contacthistory_g");
 
-  for (int i=0;i<nmax;i++)
+  for (int i = 0; i < nmax; i++)
   {
-      for (int j=0;j<maxtouch;j++)
+      for (int j = 0; j < maxtouch; j++)
       {
-          partner_g[i][j]=partner[i][j];
-          for (int k=0;k<dnum;k++) contacthistory_g[i][j][k]=contacthistory_g[i][j][k];
+          partner_g[i][j] = partner[i][j];
+          for (int k = 0 ; k < dnum; k++)
+            contacthistory_g[i][j][k] = contacthistory_g[i][j][k];
       }
   }
   maxtouch += DELTA_MAXTOUCH;

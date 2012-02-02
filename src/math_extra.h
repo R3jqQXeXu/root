@@ -58,10 +58,6 @@ namespace MathExtra {
   inline void row_times3(const double *v, const double m[3][3],
                          double *ans);
 
-  inline void col_times3(const double m[3][3],const double *v, double *ans);
-
-  inline double mdet(const double m[3][3],LAMMPS_NS::Error *error);
-
   inline void mldivide3(const double mat[3][3], const double *vec,
                         double *ans, LAMMPS_NS::Error *error);
   inline void write3(const double mat[3][3]);
@@ -88,47 +84,7 @@ namespace MathExtra {
 
   inline void multiply_shape_shape(const double *one, const double *two,
                                    double *ans);
-
-  //cubic root approx
-  inline double cbrt_5d(double d);
-  inline double cbrta_halleyd(const double a, const double R);
-  inline double halley_cbrt1d(double d);
-
-  inline int min(int a,int b);
-  inline int max(int a,int b);
-  inline int abs(int a);
-  inline double min(double a,double b);
-  inline double max(double a,double b);
-  inline double abs(double a);
 };
-
-/* ----------------------------------------------------------------------
-   Cubic root approx. 
-------------------------------------------------------------------------- */
-
-inline double MathExtra::cbrt_5d(double d)
-{
-   const unsigned int B1 = 715094163;
-   double t = 0.0;
-   unsigned int* pt = (unsigned int*) &t;
-   unsigned int* px = (unsigned int*) &d;
-   pt[1]=px[1]/3+B1;
-   return t;
-}
-
-inline double MathExtra::cbrta_halleyd(const double a, const double R)
-{
-	const double a3 = a*a*a;
-    const double b= a * (a3 + R + R) / (a3 + a3 + R);
-	return b;
-}
-
-// cube root approximation using 1 iteration of Halley's method (double)
-inline double MathExtra::halley_cbrt1d(double d)
-{
-	double a = cbrt_5d(d);
-	return cbrta_halleyd(a, d);
-}
 
 /* ----------------------------------------------------------------------
    normalize a vector
@@ -352,28 +308,6 @@ void MathExtra::row_times3(const double *v, const double m[3][3],
   ans[0] = m[0][0]*v[0]+m[0][1]*v[1]+m[0][2]*v[2];
   ans[1] = m[1][0]*v[0]+m[1][1]*v[1]+m[1][2]*v[2];
   ans[2] = m[2][0]*v[0]+m[2][1]*v[1]+m[2][2]*v[2];
-}
-
-/* ----------------------------------------------------------------------
-   matrix  times col vector 
-------------------------------------------------------------------------- */
-
-void MathExtra::col_times3(const double m[3][3],const double *v, double *ans)
-{
-  ans[0] = m[0][0]*v[0]+v[1]*m[1][0]+v[2]*m[2][0];
-  ans[1] = v[0]*m[0][1]+m[1][1]*v[1]+v[2]*m[2][1];
-  ans[2] = v[0]*m[0][2]+v[1]*m[1][2]+m[2][2]*v[2];
-}
-
-/* ----------------------------------------------------------------------
-
-Matrix determinant
-------------------------------------------------------------------------- */
-
-double MathExtra::mdet(const double m[3][3],LAMMPS_NS::Error *error)
-{
-    return ( -m[0][2]*m[1][1]*m[2][0] + m[0][1]*m[1][2]*m[2][0] + m[0][2]*m[1][0]*m[2][1] - m[0][0]*m[1][2]*m[2][1] - m[0][1]*m[1][0]*m[2][2] + m[0][0]*m[1][1]*m[2][2] );
-
 }
 
 /* ----------------------------------------------------------------------
@@ -632,12 +566,5 @@ void MathExtra::rotation_generator_z(const double m[3][3], double ans[3][3])
   ans[2][1]=m[2][0];
   ans[2][2]=0;
 }
-
-  int MathExtra::min(int a,int b) { if (a<b) return a; return b;}
-  int MathExtra::max(int a,int b) { if (a>b) return a; return b;}
-  int MathExtra::abs(int a) { if (a>0) return a; return -a;}
-  double MathExtra::min(double a,double b) { if (a<b) return a; return b;}
-  double MathExtra::max(double a,double b) { if (a>b) return a; return b;}
-  double MathExtra::abs(double a) { if (a>0.) return a; return -a;}
 
 #endif

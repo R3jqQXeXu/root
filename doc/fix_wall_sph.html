@@ -1,0 +1,86 @@
+<HTML>
+<CENTER><A HREF="http://www.liggghts.com/">LIGGGHTS WWW Site</A> - <A HREF="Manual.html">LIGGGHTS Documentation</A> - <A HREF="Section_commands.html#comm">LIGGGHTS Commands</A>
+</CENTER>
+
+
+
+
+
+
+<HR>
+
+<H3>fix wall/sph command 
+</H3>
+<P><B>Syntax:</B>
+</P>
+<PRE>fix ID group-ID wall/sph wallstyle args ... 
+</PRE>
+<UL>
+	<LI>ID, group-ID are documented in <A HREF = "fix.html">fix</A> command 
+	<LI>wall/sph = style name of this fix command 
+	<LI>wallstyle = <I>xplane</I> or <I>yplane</I> or <I>zplane</I> or <I>zcylinder</I>
+	<LI>args = list of arguments for a particular style
+	<PRE>  <I>xplane</I> or <I>yplane</I> or <I>zplane</I> args = lo hi r0 D
+    lo,hi = position of lower and upper plane (distance units, either can be NULL)
+    r0 = cutoff distance from wall at which wall-particle interaction due to repulsive force is cut off (distance units)
+    D = prefactor for repulsive force
+  <I>zcylinder</I> args = radius r0 D
+    radius = cylinder radius (distance units) 
+    r0 = cutoff distance from wall at which wall-particle interaction due to repulsive force is cut off (distance units)
+    D = prefactor for repulsive force
+	</PRE>
+</UL>
+<P><B>Examples:</B>
+</P>
+<PRE>fix wallhi all wall/sph xplane NULL 5.0 0.0 0.012 4.0
+fix zcyl all wall/sph zcylinde 0.1 0.012 4.0
+</PRE>
+<P><B>LIGGGHTS vs. LAMMPS Info: </B>
+</P>
+<P>This command is not available in LAMMPS.
+</P>
+<P><B>Description:</B>
+</P>
+<P>Bound the simulation domain with a flat wall that interacts with 
+the atoms in the group by generating a force
+on the atom in a direction perpendicular to the wall. The force magnitude
+is given by Lennard-Jones potential:
+</P>
+<CENTER><IMG SRC = "fix_wall_region_sph_eq1.gif">
+</CENTER>
+<P><I>r</I> is the distance from the particle to the wall, 
+and r<SUB>0</SUB> is the <I>cutoff</I> distance at which the
+particle and wall no longer interact.
+</P>
+<P>IMPORTANT NOTE: You must insure that r is
+always > 0 for all particles in the group, or LIGGGHTS will generate an
+error.  This means you cannot start your simulation with particles at
+the wall position or with particles on the wrong side
+of the wall (r &lt; 0). The force on the particle blows up as r -> 0. 
+This means the initial particle spacing must be carefully choosen.
+</P>
+<P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
+</P>
+<P>No information about this fix is written to <A HREF = "restart.html">binary restart
+files</A>.
+</P>
+<P>None of the <A HREF = "fix_modify.html">fix_modify</A> options
+are relevant to this fix.
+</P>
+<P>No global scalar or vector or per-atom quantities are stored by this fix 
+for access by various <A HREF = "Section_howto.html#4_15">output commands</A>.
+</P>  
+<P>No parameter of this fix can be used with the <I>start/stop</I> keywords of 
+the <A HREF = "run.html">run</A> command.
+</P>
+<P>This fix is not invoked during <A HREF = "minimize.html">energy minimization</A>.
+</P>
+<P><B>Restrictions:</B> none
+</P>
+<P><B>Related commands:</B>
+</P>
+<P><A HREF = "fix_wall_region_sph.html">fix wall/region/sph</A>
+</P>
+<P><B>Default:</B> none
+</P>
+</HTML>

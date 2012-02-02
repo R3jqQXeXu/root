@@ -78,7 +78,7 @@ void WriteRestart::command(int narg, char **arg)
 {
   if (domain->box_exist == 0)
     error->all("Write_restart command before simulation box is defined");
-  if (narg != 1 && narg != 4) error->all("Illegal write_restart command"); 
+  if (narg != 1 && narg != 3) error->all("Illegal write_restart command"); 
 
   // if filename contains a "*", replace with current timestep
 

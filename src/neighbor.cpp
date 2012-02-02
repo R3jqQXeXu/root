@@ -82,6 +82,7 @@ Neighbor::Neighbor(LAMMPS *lmp) : Pointers(lmp)
 
   maxhold = 0;
   xhold = NULL;
+  rhold = NULL; 
 
   // binning
 
@@ -145,6 +146,7 @@ Neighbor::~Neighbor()
   delete [] fixchecklist;
 
   memory->destroy_2d_double_array(xhold);
+  memory->sfree(rhold);
 
   memory->sfree(binhead);
   memory->sfree(bins);
@@ -308,6 +310,7 @@ void Neighbor::init()
 
   if (dist_check == 0) {
     memory->destroy_2d_double_array(xhold);
+    memory->sfree(rhold);
     maxhold = 0;
     xhold = NULL;
   }
@@ -326,6 +329,7 @@ void Neighbor::init()
     if (maxhold == 0) {
       maxhold = atom->nmax;
       xhold = memory->create_2d_double_array(maxhold,3,"neigh:xhold");
+      rhold = (double*) memory->srealloc(rhold,maxhold*sizeof(double),"neigh:rhold");
     }
   }
 
@@ -422,7 +426,7 @@ void Neighbor::init()
       lists[i] = new NeighList(lmp,pgsize);
       lists[i]->index = i;
       lists[i]->dnum = requests[i]->dnum;
-
+      
       if (requests[i]->pair) {
 	Pair *pair = (Pair *) requests[i]->requestor;
 	pair->init_list(requests[i]->id,lists[i]);
@@ -993,19 +997,40 @@ int Neighbor::decide()
 
 int Neighbor::check_distance()
 {
-  double delx,dely,delz,rsq;
+  double delx,dely,delz,rsq,delta_r,trigger; 
 
   double **x = atom->x;
+  double *radius = atom->radius; 
   int nlocal = atom->nlocal;
+  int radvary_flag = atom->radvary_flag; 
   if (includegroup) nlocal = atom->nfirst;
 
   int flag = 0;
-  for (int i = 0; i < nlocal; i++) {
-    delx = x[i][0] - xhold[i][0];
-    dely = x[i][1] - xhold[i][1];
-    delz = x[i][2] - xhold[i][2];
-    rsq = delx*delx + dely*dely + delz*delz;
-    if (rsq > triggersq) flag = 1;
+
+  if(radvary_flag == 0) 
+  {
+      for (int i = 0; i < nlocal; i++) {
+        delx = x[i][0] - xhold[i][0];
+        dely = x[i][1] - xhold[i][1];
+        delz = x[i][2] - xhold[i][2];
+        rsq = delx*delx + dely*dely + delz*delz;
+        if (rsq > triggersq) flag = 1;
+      }
+  }
+  
+  else 
+  {
+      trigger = sqrt(triggersq);
+      for (int i = 0; i < nlocal; i++) {
+        delx = x[i][0] - xhold[i][0];
+        dely = x[i][1] - xhold[i][1];
+        delz = x[i][2] - xhold[i][2];
+        delta_r = radius[i] - rhold[i];
+        rsq = delx*delx + dely*dely + delz*delz;
+        
+        if (delta_r > trigger || rsq > triggersq - 2.*delta_r*trigger + delta_r*delta_r) flag = 1;
+      }
+      
   }
 
   int flagall;
@@ -1030,17 +1055,37 @@ void Neighbor::build()
 
   if (dist_check) {
     double **x = atom->x;
+    double *radius = atom->radius; 
     int nlocal = atom->nlocal;
     if (includegroup) nlocal = atom->nfirst;
     if (nlocal > maxhold) {
       maxhold = atom->nmax;
       memory->destroy_2d_double_array(xhold);
       xhold = memory->create_2d_double_array(maxhold,3,"neigh:xhold");
+      
+      if(atom->radvary_flag)
+      {
+        memory->sfree(rhold);
+        rhold = (double*) memory->srealloc(rhold,maxhold*sizeof(double),"neigh:rhold");
+      }
     }
-    for (i = 0; i < nlocal; i++) {
-      xhold[i][0] = x[i][0];
-      xhold[i][1] = x[i][1];
-      xhold[i][2] = x[i][2];
+
+    if(atom->radvary_flag == 0)
+    {
+        for (i = 0; i < nlocal; i++) {
+          xhold[i][0] = x[i][0];
+          xhold[i][1] = x[i][1];
+          xhold[i][2] = x[i][2];
+        }
+    }
+    else
+    {
+        for (i = 0; i < nlocal; i++) {
+          xhold[i][0] = x[i][0];
+          xhold[i][1] = x[i][1];
+          xhold[i][2] = x[i][2];
+          rhold[i] = radius[i];
+        }
     }
   }
 
@@ -1600,6 +1645,7 @@ double Neighbor::memory_usage()
 {
   double bytes = 0.0;
   bytes += maxhold*3 * sizeof(double);
+  if(atom->radvary_flag) bytes += maxhold * sizeof(double); 
 
   if (style != NSQ) {
     bytes += maxbin * sizeof(int);

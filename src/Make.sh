@@ -50,6 +50,7 @@ if (test $1 = "style") then
   style CFD_DATACOUPLING_CLASS      cfd_datacoupling_  cfd_datacoupling  fix_cfd_coupling
   style CFD_REGIONMODEL_CLASS       cfd_regionmodel_  cfd_regionmodel  fix_cfd_coupling
   style LB_CLASS        ""          lb  
+  style SPH_KERNEL_CLASS  sph_kernel_  sph_kernel  pair_sph-fix_sph
 
 # edit Makefile.lib
 # called by "make makelib"

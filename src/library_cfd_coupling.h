@@ -31,6 +31,7 @@ See the README file in the top-level LAMMPS directory.
 extern "C" {
 #endif
 
+int liggghts_get_maxtag(void *ptr);
 void* locate_coupling_fix(void *ptr);
 void data_liggghts_to_of(char *name,char *type,void *ptr,void *&data);
 void data_of_to_liggghts(char *name,char *type,void *ptr,void *data);

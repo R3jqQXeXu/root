@@ -53,7 +53,7 @@ class PairGranHookeHistory : public PairGran {
  protected:
 
   virtual void history_args(char**);
-  virtual void allocate_properties(int);
+  void allocate_properties(int);
 
   class FixPropertyGlobal* Y1; //Youngs Modulus
   class FixPropertyGlobal* v1; //Poisson's ratio
@@ -63,6 +63,7 @@ class PairGranHookeHistory : public PairGran {
   class FixPropertyGlobal* coeffFrict1; //coefficient of (static) friction
   class FixPropertyGlobal* coeffRollFrict1; //characteristic velocity needed for Linear Spring Model
 
+  int charVelflag;
   class FixPropertyGlobal* charVel1; //characteristic velocity needed for Linear Spring Model
 
   double **Yeff,**Geff,**betaeff,**veff,**cohEnergyDens,**coeffRestLog,**coeffFrict,charVel,**coeffRollFrict;

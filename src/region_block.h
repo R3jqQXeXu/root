@@ -28,6 +28,7 @@ class RegBlock : public Region {
   friend class FixPour;
   friend class FixPourLegacy; 
   friend class FixPourDev; 
+  friend class FixPourDevRegionupdate; 
 
  public:
   RegBlock(class LAMMPS *, int, char **);

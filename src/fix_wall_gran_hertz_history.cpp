@@ -37,7 +37,7 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "error.h"
 #include "fix_rigid.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 #include "mech_param_gran.h"
 
 using namespace LAMMPS_NS;
@@ -75,9 +75,9 @@ void FixWallGranHertzHistory::init_substyle()
   FixPropertyGlobal *coeffRollFrict1, *cohEnergyDens1;
   int max_type = pairgran->mpg->max_type();
   if(rollingflag)
-    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type)]);
+    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type));
   if(cohesionflag)
-    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
+    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type));
 
   //pre-calculate parameters for possible contact material combinations
   for(int i=1;i< max_type+1; i++)

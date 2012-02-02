@@ -43,8 +43,8 @@ class FixCfdCouplingConvection : public FixCfdCoupling {
  protected:
   virtual void special_settings();
 
-  class FixPropertyPerAtom* fix_convectiveFlux;
-  class FixPropertyPerAtom* fix_heatFlux;
+  class FixPropertyAtom* fix_convectiveFlux;
+  class FixPropertyAtom* fix_heatFlux;
   double T0;
 };
 

@@ -44,7 +44,7 @@ void CreateAtoms::command(int narg, char **arg)
   if (domain->box_exist == 0)
     error->all("Create_atoms command before simulation box is defined");
 
-  if(modify->fix_restart_in_progress()) error->all("Can not create atoms while restart is in progress. Add a 'run 1' command before 'create atoms'");
+  if(modify->fix_restart_in_progress()) error->all("Can not create atoms while restart is in progress. Add a 'run 0' command before 'create atoms'");
 
   // parse arguments
 

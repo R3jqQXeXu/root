@@ -30,8 +30,8 @@ See the README file in the top-level LAMMPS directory.
 #include "modify.h"
 #include "math.h"
 #include "myvector.h"
-#include "fix_propertyPerAtom.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_atom.h"
+#include "fix_property_global.h"
 #include "fix_cfd_coupling.h"
 #include "cfd_datacoupling_file.h"
 #include <iostream>
@@ -202,7 +202,8 @@ void CfdDatacouplingFile::readVectorData(char *name, double ** field)
     int numberOfParticles;
     inputPtr >> numberOfParticles;
     
-    if(atom->nlocal!=numberOfParticles) error->all("Fix couple/cfd/file: Data corruption: # particles in file does not match # particles in LIGGGHTS");
+    if(atom->nlocal!=numberOfParticles) error->all("Fix couple/cfd/file: Data corruption: # particles in file does not match # particles in LIGGGHTS.\n"
+                                                   "Note that file-based coupling currently does not support inserting or deleting particles during a coupled run.");
 
     for(int index = 0;index < numberOfParticles; ++index)
     {
@@ -235,7 +236,8 @@ void CfdDatacouplingFile::readScalarData(char* name, double *field)
     int numberOfParticles;
     inputPtr >> numberOfParticles;
 
-    if(atom->nlocal!=numberOfParticles) error->all("Fix couple/cfd/file: Data corruption: # particles in file does not match # particles in LIGGGHTS");
+    if(atom->nlocal!=numberOfParticles) error->all("Fix couple/cfd/file: Data corruption: # particles in file does not match # particles in LIGGGHTS.\n"
+                                                   "Note that file-based coupling currently does not support inserting or deleting particles during a coupled run.");
 
     // write data to variable
     for(int index = 0;index < numberOfParticles; ++index)

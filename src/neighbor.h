@@ -95,6 +95,7 @@ class Neighbor : protected Pointers {
   double triggersq;                // trigger = build when atom moves this dist
 
   double **xhold;                  // atom coords at last neighbor build
+  double *rhold;                   // atom radii at last neighbor build
   int maxhold;                     // size of xhold array
 
   int nbinx,nbiny,nbinz;           // # of global bins

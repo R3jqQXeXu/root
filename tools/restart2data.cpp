@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -51,7 +51,7 @@ enum{VERSION,UNITS,NTIMESTEP,DIMENSION,NPROCS,PROCGRID_0,PROCGRID_1,PROCGRID_2,
 enum{MASS,SHAPE,DIPOLE};
 enum{PAIR,BOND,ANGLE,DIHEDRAL,IMPROPER};
 
-static const char * const cg_type_list[] = 
+static const char * const cg_type_list[] =
   {"none", "lj9_6", "lj12_4", "lj12_6"};
 
 // ---------------------------------------------------------------------
@@ -82,6 +82,8 @@ class Data {
   int ntypes,nbondtypes,nangletypes,ndihedraltypes,nimpropertypes;
   int bond_per_atom,angle_per_atom,dihedral_per_atom,improper_per_atom;
   int triclinic;
+
+  int tag_off,tag_max; //NP modified C.K.
 
   double xlo,xhi,ylo,yhi,zlo,zhi,xy,xz,yz;
   double special_lj[4],special_coul[4];
@@ -191,7 +193,7 @@ class Data {
   int *angle_atom1,*angle_atom2,*angle_atom3;
   int *dihedral_atom1,*dihedral_atom2,*dihedral_atom3,*dihedral_atom4;
   int *improper_atom1,*improper_atom2,*improper_atom3,*improper_atom4;
-  
+
   // functions
 
   Data();
@@ -300,7 +302,7 @@ int main (int argc, char **argv)
 {
   // syntax error check
 
-    if ((argc != 3) && (argc !=4)) {
+    if ((argc != 3) && (argc !=4) && (argc !=5)) {
     printf("Syntax: restart2data restart-file data-file (input-file)\n");
     return 1;
   }
@@ -334,6 +336,14 @@ int main (int argc, char **argv)
 
   Data data;
 
+  //NP modified C.K.
+  data.tag_max = data.tag_off = 0;
+  if(argc == 5 && strcmp(argv[3],"tag_offset") == 0)
+  {
+    data.tag_off = atoi(argv[4]);
+    printf("Applying a tag offset of %d to atom data\n",data.tag_off); 
+  }
+
   header(fp,data);
   groups(fp);
   type_arrays(fp,data);
@@ -345,7 +355,7 @@ int main (int argc, char **argv)
   double *buf = NULL;
   int n,m;
   int maxbuf = 0;
-  data.iatoms = data.ibonds = data.iangles = 
+  data.iatoms = data.ibonds = data.iangles =
     data.idihedrals = data.iimpropers = 0;
 
   for (int iproc = 0; iproc < data.nprocs; iproc++) {
@@ -369,7 +379,7 @@ int main (int argc, char **argv)
     fread(buf,sizeof(double),n,fp);
 
     m = 0;
-    while (m < n) m += atom(&buf[m],data);
+    while (m < n) m +=atom(&buf[m],data);// {printf("reading %d\n",m);m +=atom(&buf[m],data);} 
   }
 
   fclose(fp);
@@ -380,7 +390,7 @@ int main (int argc, char **argv)
 
   // write out data file and no input file
 
-  if (argc == 3) {
+  if (argc == 3 || argc == 5) { //NP modified C.K.
     printf("Writing data file ...\n");
     fp = fopen(argv[2],"w");
     if (fp == NULL) {
@@ -410,7 +420,11 @@ int main (int argc, char **argv)
     fclose(fp);
     fclose(fp2);
   }
-  
+
+  //NP modified C.K.
+  FILE *fpt = fopen("max_tag","w");
+  fprintf(fpt,"%d\n",data.tag_max); 
+  fclose(fpt);
   return 0;
 }
 
@@ -462,7 +476,7 @@ void header(FILE *fp, Data &data)
     //   set sub-styles to 1 to N
 
     else if (flag == ATOM_STYLE) {
-      data.style_angle = data.style_atomic = data.style_bond = 
+      data.style_angle = data.style_atomic = data.style_bond =
 	data.style_charge = data.style_dipole =	data.style_dpd =
 	data.style_ellipsoid = data.style_full = data.style_granular =
 	data.style_hybrid = data.style_molecular = data.style_peri = 0;
@@ -887,7 +901,7 @@ int atom_dipole(double *buf, Data &data, int iatoms)
   data.mux[iatoms] = buf[m++];
   data.muy[iatoms] = buf[m++];
   data.muz[iatoms] = buf[m++];
-  
+
   return m;
 }
 
@@ -929,7 +943,7 @@ int atom_ellipsoid(double *buf, Data &data, int iatoms)
   data.angmomx[iatoms] = buf[m++];
   data.angmomy[iatoms] = buf[m++];
   data.angmomz[iatoms] = buf[m++];
-  
+
   return m;
 }
 
@@ -939,7 +953,8 @@ int atom_granular(double *buf, Data &data, int iatoms)
   data.x[iatoms] = buf[m++];
   data.y[iatoms] = buf[m++];
   data.z[iatoms] = buf[m++];
-  data.tag[iatoms] = static_cast<int> (buf[m++]);
+  data.tag[iatoms] = static_cast<int> (buf[m++]) + data.tag_off; //NP modified C.K.
+  if(data.tag[iatoms] > data.tag_max) data.tag_max = data.tag[iatoms]; //NP modified C.K.
   data.type[iatoms] = static_cast<int> (buf[m++]);
   data.mask[iatoms] = static_cast<int> (buf[m++]);
   data.image[iatoms] = static_cast<int> (buf[m++]);
@@ -1018,7 +1033,7 @@ int atom_full(double *buf, Data &data, int iatoms)
       data.idihedrals++;
     }
   }
-    
+
   n = static_cast<int> (buf[m++]);
   for (int k = 0; k < n; k++) {
     type = static_cast<int> (buf[m++]);
@@ -1418,7 +1433,7 @@ void pair(FILE *fp, Data &data, char *style, int flag)
 	  }
 	}
       }
-    
+
   } else if ((strcmp(style,"coul/cut") == 0) ||
 	     (strcmp(style,"coul/debye") == 0) ||
 	     (strcmp(style,"coul/long") == 0)) {
@@ -1557,7 +1572,7 @@ void pair(FILE *fp, Data &data, char *style, int flag)
 	data.pair_gb_epsb[i] = pow(data.pair_gb_epsb[i],-mu);
 	data.pair_gb_epsc[i] = pow(data.pair_gb_epsc[i],-mu);
       }
-      
+
       for (j = i; j <= data.ntypes; j++) {
 	itmp = read_int(fp);
 	if (i == j && itmp == 0) {
@@ -1582,10 +1597,10 @@ void pair(FILE *fp, Data &data, char *style, int flag)
 	   (strcmp(style,"gran/hooke/history") == 0) ||
 	   (strcmp(style,"gran/hertz/history") == 0)) {
 
-    double kn = read_double(fp);
-    double kt = read_double(fp);
-    double gamman = read_double(fp);
-    double gammat = read_double(fp);
+    //double kn = read_double(fp);
+    //double kt = read_double(fp);
+    //double gamman = read_double(fp);
+    //double gammat = read_double(fp);
     double xmu = read_double(fp);
     int dampflag = read_int(fp);
 
@@ -2027,7 +2042,7 @@ void pair(FILE *fp, Data &data, char *style, int flag)
       data.pair_cut_coul = NULL;
       m=0;
     }
-    
+
     for (i = 1; i <= data.ntypes; i++) {
       data.pair_cg_cmm_type[i] = new int[numtyp];
       data.pair_setflag[i] = new int[numtyp];
@@ -2041,7 +2056,7 @@ void pair(FILE *fp, Data &data, char *style, int flag)
 
       for (j = i; j <= data.ntypes; j++) {
         itmp = read_int(fp);
-        data.pair_setflag[i][j] = itmp;        
+        data.pair_setflag[i][j] = itmp;
         if (i == j && itmp == 0) {
           printf("ERROR: Pair coeff %d,%d is not in restart file\n",i,j);
           exit(1);
@@ -2055,7 +2070,7 @@ void pair(FILE *fp, Data &data, char *style, int flag)
 	    data.pair_cut_lj[i][j] = read_double(fp);
 	    data.pair_cut_coul[i][j] = read_double(fp);
 	  }
-        } 
+        }
       }
     }
 
@@ -2251,7 +2266,7 @@ void angle(FILE *fp, Data &data)
     data.angle_cg_cmm_sigma = new double[data.nangletypes+1];
     double *angle_cg_cmm_rcut = new double[data.nangletypes+1];
     data.angle_cg_cmm_type = new int[data.nangletypes+1];
-    
+
     fread(&data.angle_harmonic_k[1],sizeof(double),data.nangletypes,fp);
     fread(&data.angle_harmonic_theta0[1],sizeof(double),data.nangletypes,fp);
     fread(&data.angle_cg_cmm_epsilon[1],sizeof(double),data.nangletypes,fp);
@@ -2569,7 +2584,7 @@ void Data::write(FILE *fp, FILE *fp2)
 {
   fprintf(fp,"LAMMPS data file from restart file: timestep = %d, procs = %d\n",
 	  ntimestep,nprocs);
-  
+
   fprintf(fp,"\n");
 
   fprintf(fp,"%d atoms\n",natoms);
@@ -2587,7 +2602,7 @@ void Data::write(FILE *fp, FILE *fp2)
   if (nimpropertypes) fprintf(fp,"%d improper types\n",nimpropertypes);
 
   fprintf(fp,"\n");
-  
+
   fprintf(fp,"%-1.16e %-1.16e xlo xhi\n",xlo,xhi);
   fprintf(fp,"%-1.16e %-1.16e ylo yhi\n",ylo,yhi);
   fprintf(fp,"%-1.16e %-1.16e zlo zhi\n",zlo,zhi);
@@ -2640,7 +2655,7 @@ void Data::write(FILE *fp, FILE *fp2)
   // pair coeffs to data file
 
   if (pair_style && fp2 == NULL) {
-    if ((strcmp(pair_style,"none") != 0) && 
+    if ((strcmp(pair_style,"none") != 0) &&
 	(strcmp(pair_style,"airebo") != 0) &&
 	(strcmp(pair_style,"coul/cut") != 0) &&
 	(strcmp(pair_style,"coul/debye") != 0) &&
@@ -2651,9 +2666,9 @@ void Data::write(FILE *fp, FILE *fp2)
 	(strcmp(pair_style,"eam/alloy/opt") != 0) &&
 	(strcmp(pair_style,"eam/fs") != 0) &&
 	(strcmp(pair_style,"eam/fs/opt") != 0) &&
-	(strcmp(pair_style,"gran/history") != 0) &&
-	(strcmp(pair_style,"gran/no_history") != 0) &&
-	(strcmp(pair_style,"gran/hertzian") != 0) &&
+	(strcmp(pair_style,"gran/hertz/history") != 0) &&  //NP modified C.K.
+	(strcmp(pair_style,"gran/hooke/history") != 0) &&
+	(strcmp(pair_style,"gran/hooke") != 0) &&
 	(strcmp(pair_style,"meam") != 0) &&
 	(strcmp(pair_style,"reax") != 0) &&
 	(strcmp(pair_style,"sw") != 0) &&
@@ -2663,21 +2678,21 @@ void Data::write(FILE *fp, FILE *fp2)
 	(strcmp(pair_style,"hybrid") != 0) &&
 	(strcmp(pair_style,"hybrid/overlay") != 0))
       fprintf(fp,"\nPair Coeffs\n\n");
-    
+
     if (strcmp(pair_style,"born/coul/long") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g %g %g %g\n",i,
 		pair_born_A[i],pair_born_rho[i],pair_born_sigma[i],
 		pair_born_C[i],pair_born_D[i]);
 
-    } else if ((strcmp(pair_style,"buck") == 0) || 
+    } else if ((strcmp(pair_style,"buck") == 0) ||
 	(strcmp(pair_style,"buck/coul/cut") == 0) ||
 	(strcmp(pair_style,"buck/coul/long") == 0) ||
 	(strcmp(pair_style,"buck/long") == 0)) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g %g\n",i,
 		pair_buck_A[i],pair_buck_rho[i],pair_buck_C[i]);
-      
+
     } else if (strcmp(pair_style,"colloid") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g %g %g\n",i,
@@ -2688,12 +2703,12 @@ void Data::write(FILE *fp, FILE *fp2)
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		pair_dipole_epsilon[i],pair_dipole_sigma[i]);
-      
+
     } else if (strcmp(pair_style,"dpd") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		pair_dpd_a0[i],pair_dpd_gamma[i]);
-      
+
     } else if (strcmp(pair_style,"gayberne") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g %g %g %g %g %g %g\n",i,
@@ -2709,15 +2724,15 @@ void Data::write(FILE *fp, FILE *fp2)
 	fprintf(fp,"%d %g %g %g %g\n",i,
 		pair_charmm_epsilon[i],pair_charmm_sigma[i],
 		pair_charmm_eps14[i],pair_charmm_sigma14[i]);
-      
-    } else if ((strcmp(pair_style,"lj/class2") == 0) || 
+
+    } else if ((strcmp(pair_style,"lj/class2") == 0) ||
 	       (strcmp(pair_style,"lj/class2/coul/cut") == 0) ||
 	       (strcmp(pair_style,"lj/class2/coul/long") == 0)) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		pair_class2_epsilon[i],pair_class2_sigma[i]);
-      
-    } else if ((strcmp(pair_style,"lj/cut") == 0) || 
+
+    } else if ((strcmp(pair_style,"lj/cut") == 0) ||
 	       (strcmp(pair_style,"lj/cut/opt") == 0) ||
 	       (strcmp(pair_style,"lj/cut/coul/cut") == 0) ||
 	       (strcmp(pair_style,"lj/cut/coul/debye") == 0) ||
@@ -2744,24 +2759,24 @@ void Data::write(FILE *fp, FILE *fp2)
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		pair_ljsmooth_epsilon[i],pair_ljsmooth_sigma[i]);
-      
+
     } else if ((strcmp(pair_style,"morse") == 0) ||
 	       (strcmp(pair_style,"morse/opt") == 0)) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g %g\n",i,
 		pair_morse_d0[i],pair_morse_alpha[i],pair_morse_r0[i]);
-      
+
     } else if (strcmp(pair_style,"soft") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		pair_soft_start[i],pair_soft_stop[i]);
-      
+
     } else if (strcmp(pair_style,"yukawa") == 0) {
       for (int i = 1; i <= ntypes; i++)
 	fprintf(fp,"%d %g\n",i,
 		pair_yukawa_A[i]);
 
-    } else if ((strcmp(pair_style,"cg/cmm") == 0) || 
+    } else if ((strcmp(pair_style,"cg/cmm") == 0) ||
                (strcmp(pair_style,"cg/cmm/coul/cut") == 0) ||
                (strcmp(pair_style,"cg/cmm/coul/long") == 0)) {
       printf("ERROR: Cannot write pair_style %s to data file\n",
@@ -2774,7 +2789,7 @@ void Data::write(FILE *fp, FILE *fp2)
   // only supported styles = cg/cmm
 
   if (pair_style && fp2) {
-    if ((strcmp(pair_style,"cg/cmm") == 0) || 
+    if ((strcmp(pair_style,"cg/cmm") == 0) ||
 	(strcmp(pair_style,"cg/cmm/coul/cut") == 0) ||
 	(strcmp(pair_style,"cg/cmm/coul/long") == 0)) {
       for (int i = 1; i <= ntypes; i++) {
@@ -2795,7 +2810,7 @@ void Data::write(FILE *fp, FILE *fp2)
   // bond coeffs to data file
 
   if (bond_style && fp2 == NULL) {
-    if ((strcmp(bond_style,"none") != 0) && 
+    if ((strcmp(bond_style,"none") != 0) &&
 	(strcmp(bond_style,"hybrid") != 0))
       fprintf(fp,"\nBond Coeffs\n\n");
 
@@ -2863,10 +2878,10 @@ void Data::write(FILE *fp, FILE *fp2)
   if (angle_style && fp2 == NULL) {
     double PI = 3.1415926;           // convert back to degrees
 
-    if ((strcmp(angle_style,"none") != 0) && 
+    if ((strcmp(angle_style,"none") != 0) &&
 	(strcmp(angle_style,"hybrid") != 0))
       fprintf(fp,"\nAngle Coeffs\n\n");
-    
+
     if (strcmp(angle_style,"charmm") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g %g %g\n",i,
@@ -2876,15 +2891,15 @@ void Data::write(FILE *fp, FILE *fp2)
     } else if (strcmp(angle_style,"class2") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g %g %g\n",i,
-		angle_class2_theta0[i]/PI*180.0,angle_class2_k2[i], 
+		angle_class2_theta0[i]/PI*180.0,angle_class2_k2[i],
 		angle_class2_k3[i],angle_class2_k4[i]);
-      
+
       fprintf(fp,"\nBondBond Coeffs\n\n");
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g %g\n",i,
 		angle_class2_bb_k[i],
 		angle_class2_bb_r1[i],angle_class2_bb_r2[i]);
-      
+
       fprintf(fp,"\nBondAngle Coeffs\n\n");
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g %g %g\n",i,
@@ -2894,19 +2909,19 @@ void Data::write(FILE *fp, FILE *fp2)
     } else if (strcmp(angle_style,"cosine") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g\n",i,angle_cosine_k[i]);
-      
+
     } else if ((strcmp(angle_style,"cosine/squared") == 0) ||
                (strcmp(angle_style,"cosine/delta") == 0)) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		angle_cosine_squared_k[i],
 		angle_cosine_squared_theta0[i]/PI*180.0);
-      
+
     } else if (strcmp(angle_style,"harmonic") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g\n",i,
 		angle_harmonic_k[i],angle_harmonic_theta0[i]/PI*180.0);
-      
+
     } else if (strcmp(angle_style,"cg/cmm") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp,"%d %g %g %s %g %g\n",i,
@@ -2928,19 +2943,19 @@ void Data::write(FILE *fp, FILE *fp2)
 	fprintf(fp2,"angle_coeffs  %d %g %g\n",i,
 		angle_cosine_squared_k[i],
 		angle_cosine_squared_theta0[i]/PI*180.0);
-      
+
     } else if (strcmp(angle_style,"harmonic") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp2,"angle_coeffs  %d %g %g\n",i,
 		angle_harmonic_k[i],angle_harmonic_theta0[i]/PI*180.0);
-      
+
     } else if (strcmp(angle_style,"cg/cmm") == 0) {
       for (int i = 1; i <= nangletypes; i++)
 	fprintf(fp2,"angle_coeffs  %d %g %g %s %g %g\n",i,
 		angle_harmonic_k[i],angle_harmonic_theta0[i]/PI*180.0,
 		cg_type_list[angle_cg_cmm_type[i]],angle_cg_cmm_epsilon[i],
 		angle_cg_cmm_sigma[i]);
-      
+
     } else {
       printf("ERROR: Cannot write angle_style %s to input file\n",
 	     angle_style);
@@ -2951,7 +2966,7 @@ void Data::write(FILE *fp, FILE *fp2)
   if (dihedral_style) {
     double PI = 3.1415926;           // convert back to degrees
 
-    if ((strcmp(dihedral_style,"none") != 0) && 
+    if ((strcmp(dihedral_style,"none") != 0) &&
 	(strcmp(dihedral_style,"hybrid") != 0))
       fprintf(fp,"\nDihedral Coeffs\n\n");
 
@@ -3017,7 +3032,7 @@ void Data::write(FILE *fp, FILE *fp2)
 		dihedral_harmonic_sign[i]);
 
     } else if (strcmp(dihedral_style,"helix") == 0) {
-      for (int i = 1; i <= ndihedraltypes; i++) 
+      for (int i = 1; i <= ndihedraltypes; i++)
 	fprintf(fp,"%d %g %g %g\n",i,dihedral_helix_aphi[i],
 		dihedral_helix_bphi[i],dihedral_helix_cphi[i]);
 
@@ -3039,7 +3054,7 @@ void Data::write(FILE *fp, FILE *fp2)
   if (improper_style) {
     double PI = 3.1415926;           // convert back to degrees
 
-    if ((strcmp(improper_style,"none") != 0) && 
+    if ((strcmp(improper_style,"none") != 0) &&
 	(strcmp(improper_style,"hybrid") != 0))
       fprintf(fp,"\nImproper Coeffs\n\n");
 

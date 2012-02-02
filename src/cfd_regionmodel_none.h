@@ -32,7 +32,7 @@ class CfdRegionmodelNone : public CfdRegionmodel {
   void init();
 
  protected:
-  class FixPropertyPerAtom *inRegion;
+  class FixPropertyAtom *inRegion;
   class FixPropertyGlobal *outRegion;
 
   double *inregion;

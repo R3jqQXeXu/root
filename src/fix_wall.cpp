@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -105,7 +105,7 @@ FixWall::FixWall(LAMMPS *lmp, int narg, char **arg) :
     if (wallflag[m] && cutoff[m] <= 0.0)
       error->all("Fix wall cutoff <= 0.0");
 
-  if (velflag && wigflag) 
+  if (velflag && wigflag)
     error->all("Cannot set both vel and wiggle in fix wall command");
 
   if ((wallflag[XLO] || wallflag[XHI]) && domain->xperiodic)

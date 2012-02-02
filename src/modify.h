@@ -77,9 +77,12 @@ class Modify : protected Pointers {
   void delete_fix(const char *);
   int find_fix(const char *);
   class FixPropertyGlobal* add_fix_property_global(int narg,char **arg);
-  class FixPropertyPerAtom* add_fix_property_peratom(int narg,char **arg);
-  int find_fix_property(const char *,const char *,const char *,int ,int );
-  int find_fix_property(const char *,const char *,const char *,int ,int,bool );
+  class FixPropertyAtom* add_fix_property_atom(int narg,char **arg);
+  class Fix* find_fix_id(const char *id);
+  class Fix* find_fix_style(const char *style, int rank);
+  int n_fixes_style(const char *style); 
+  class Fix* find_fix_property(const char *,const char *,const char *,int ,int );
+  class Fix* find_fix_property(const char *,const char *,const char *,int ,int,bool );
   class FixScalarTransportEquation* find_fix_scalar_transport_equation(const char *equation_id);
 
   void add_compute(int, char **);

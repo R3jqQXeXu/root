@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -43,7 +43,7 @@ void Finish::end(int flag)
   int loopflag,minflag,prdflag,timeflag,fftflag,histoflag,neighflag;
   double time,tmp,ave,max,min,natoms;
   double time_loop,time_other;
-  
+
   int me,nprocs;
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
@@ -53,7 +53,7 @@ void Finish::end(int flag)
   // flag = 0 = just loop summary
   // flag = 1 = dynamics or minimization
   // flag = 2 = PRD
-  
+
   loopflag = 1;
   minflag = prdflag = timeflag = fftflag = histoflag = neighflag = 0;
 
@@ -64,17 +64,17 @@ void Finish::end(int flag)
   }
   if (flag == 2) {
     prdflag = histoflag = neighflag = 1;
-    
+
   }
 
   // loop stats
 
   if (loopflag) {
     time_other = timer->array[TIME_LOOP] -
-      (timer->array[TIME_PAIR] + timer->array[TIME_BOND] + 
+      (timer->array[TIME_PAIR] + timer->array[TIME_BOND] +
        timer->array[TIME_KSPACE] + timer->array[TIME_NEIGHBOR] +
        timer->array[TIME_COMM] + timer->array[TIME_OUTPUT]);
-    
+
     time_loop = timer->array[TIME_LOOP];
     MPI_Allreduce(&time_loop,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time_loop = tmp/nprocs;
@@ -84,9 +84,9 @@ void Finish::end(int flag)
 
     double rlocal = atom->nlocal;
     MPI_Allreduce(&rlocal,&natoms,1,MPI_DOUBLE,MPI_SUM,world);
-    
+
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,
 		"Loop time of %g on %d procs for %d steps with %.15g atoms\n",
 		time_loop,nprocs,update->nsteps,natoms);
@@ -166,10 +166,10 @@ void Finish::end(int flag)
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"  Dephase  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"  Dephase  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
@@ -178,10 +178,10 @@ void Finish::end(int flag)
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"  Dynamics time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"  Dynamics time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
@@ -190,10 +190,10 @@ void Finish::end(int flag)
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"  Quench   time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"  Quench   time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
@@ -202,10 +202,10 @@ void Finish::end(int flag)
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"  Other    time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"  Other    time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
@@ -223,10 +223,10 @@ void Finish::end(int flag)
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"Pair  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"Pair  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
@@ -236,7 +236,7 @@ void Finish::end(int flag)
       MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
       time = tmp/nprocs;
       if (me == 0) {
-	if (screen) 
+	if (screen)
 	  fprintf(screen,"Bond  time (%%) = %g (%g)\n",
 		  time,time/time_loop*100.0);
 	if (logfile)
@@ -244,13 +244,13 @@ void Finish::end(int flag)
 		  time,time/time_loop*100.0);
       }
     }
-    
+
     if (force->kspace) {
       time = timer->array[TIME_KSPACE];
       MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
       time = tmp/nprocs;
       if (me == 0) {
-	if (screen) 
+	if (screen)
 	  fprintf(screen,"Kspce time (%%) = %g (%g)\n",
 		  time,time/time_loop*100.0);
 	if (logfile)
@@ -258,56 +258,56 @@ void Finish::end(int flag)
 		  time,time/time_loop*100.0);
       }
     }
-    
+
     time = timer->array[TIME_NEIGHBOR];
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"Neigh time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"Neigh time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
-    
+
     time = timer->array[TIME_COMM];
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"Comm  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"Comm  time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
-    
+
     time = timer->array[TIME_OUTPUT];
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"Outpt time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"Outpt time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
-    
+
     time = time_other;
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
     if (me == 0) {
-      if (screen) 
+      if (screen)
 	fprintf(screen,"Other time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
-      if (logfile) 
+      if (logfile)
 	fprintf(logfile,"Other time (%%) = %g (%g)\n",
 		time,time/time_loop*100.0);
     }
   }
-  
+
   // FFT timing statistics
   // time3d,time1d = total time during run for 3d and 1d FFTs
 
@@ -322,15 +322,15 @@ void Finish::end(int flag)
     int nsample = 5;
     double time3d,time1d;
     force->kspace->timing(nsample,time3d,time1d);
-    
+
     time3d = nsteps * time3d / nsample;
     MPI_Allreduce(&time3d,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time3d = tmp/nprocs;
-    
+
     time1d = nsteps * time1d / nsample;
     MPI_Allreduce(&time1d,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time1d = tmp/nprocs;
-    
+
     double time_kspace = timer->array[TIME_KSPACE];
     MPI_Allreduce(&time_kspace,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time_kspace = tmp/nprocs;
@@ -380,7 +380,7 @@ void Finish::end(int flag)
 	fprintf(logfile,"\n");
       }
     }
-    
+
     tmp = atom->nghost;
     stats(1,&tmp,&ave,&max,&min,10,histo);
     if (me == 0) {
@@ -397,17 +397,18 @@ void Finish::end(int flag)
 	fprintf(logfile,"\n");
       }
     }
-    
+
     // find a non-skip neighbor list containing half the pairwise interactions
     // count neighbors in that list for stats purposes
-    
+
     for (m = 0; m < neighbor->old_nrequest; m++)
-      if ((neighbor->old_requests[m]->half || 
+      if ((neighbor->old_requests[m]->half ||
 	   neighbor->old_requests[m]->gran ||
 	   neighbor->old_requests[m]->respaouter ||
 	   neighbor->old_requests[m]->half_from_full) &&
-	  neighbor->old_requests[m]->skip == 0) break;
-    
+	  neighbor->old_requests[m]->skip == 0 &&
+	  neighbor->old_requests[m]->occasional == 0) break;
+
     nneigh = 0;
     if (m < neighbor->old_nrequest) {
       int inum = neighbor->lists[m]->inum;
@@ -416,7 +417,7 @@ void Finish::end(int flag)
       for (int ii = 0; ii < inum; ii++)
 	nneigh += numneigh[ilist[ii]];
     }
-    
+
     tmp = nneigh;
     stats(1,&tmp,&ave,&max,&min,10,histo);
     if (me == 0) {
@@ -433,18 +434,19 @@ void Finish::end(int flag)
 	fprintf(logfile,"\n");
       }
     }
-    
+
     // find a non-skip neighbor list containing full pairwise interactions
-    
+
     for (m = 0; m < neighbor->old_nrequest; m++)
       if (neighbor->old_requests[m]->full &&
-	  neighbor->old_requests[m]->skip == 0) break;
-    
+	  neighbor->old_requests[m]->skip == 0 &&
+	  neighbor->old_requests[m]->occasional == 0) break;
+
     if (m < neighbor->old_nrequest) {
       nneigh = 0;
       for (i = 0; i < atom->nlocal; i++)
 	nneigh += neighbor->lists[m]->numneigh[i];
-      
+
       tmp = nneigh;
       stats(1,&tmp,&ave,&max,&min,10,histo);
       if (me == 0) {
@@ -469,11 +471,11 @@ void Finish::end(int flag)
       if (screen) fprintf(screen,"\n");
       if (logfile) fprintf(logfile,"\n");
     }
-    
+
     tmp = nneigh;
     double nall;
     MPI_Allreduce(&tmp,&nall,1,MPI_DOUBLE,MPI_SUM,world);
-    
+
     int nspec;
     double nspec_all;
     if (atom->molecular) {
@@ -482,39 +484,39 @@ void Finish::end(int flag)
       tmp = nspec;
       MPI_Allreduce(&tmp,&nspec_all,1,MPI_DOUBLE,MPI_SUM,world);
     }
-    
+
     if (me == 0) {
       if (screen) {
-	if (nall < 2.0e9) 
+	if (nall < 2.0e9)
 	  fprintf(screen,
 		  "Total # of neighbors = %d\n",static_cast<int> (nall));
 	else fprintf(screen,"Total # of neighbors = %g\n",nall);
 	if (natoms > 0) fprintf(screen,"Ave neighs/atom = %g\n",nall/natoms);
-	if (atom->molecular && natoms > 0) 
+	if (atom->molecular && natoms > 0)
 	  fprintf(screen,"Ave special neighs/atom = %g\n",nspec_all/natoms);
 	fprintf(screen,"Neighbor list builds = %d\n",neighbor->ncalls);
 	fprintf(screen,"Dangerous builds = %d\n",neighbor->ndanger);
       }
       if (logfile) {
-	if (nall < 2.0e9) 
+	if (nall < 2.0e9)
 	  fprintf(logfile,
 		  "Total # of neighbors = %d\n",static_cast<int> (nall));
 	else fprintf(logfile,"Total # of neighbors = %g\n",nall);
 	if (natoms > 0) fprintf(logfile,"Ave neighs/atom = %g\n",nall/natoms);
-	if (atom->molecular && natoms > 0) 
+	if (atom->molecular && natoms > 0)
 	  fprintf(logfile,"Ave special neighs/atom = %g\n",nspec_all/natoms);
 	fprintf(logfile,"Neighbor list builds = %d\n",neighbor->ncalls);
 	fprintf(logfile,"Dangerous builds = %d\n",neighbor->ndanger);
       }
     }
   }
-  
+
   if (logfile) fflush(logfile);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void Finish::stats(int n, double *data, 
+void Finish::stats(int n, double *data,
 		   double *pave, double *pmax, double *pmin,
 		   int nhisto, int *histo)
 {

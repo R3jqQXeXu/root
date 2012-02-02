@@ -1,130 +1,109 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
-<HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
-	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Unix)">
-	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGED" CONTENT="20101006;9075300">
-	<STYLE TYPE="text/css">
-	<!--
-		H3.western { font-family: "Albany", sans-serif }
-		H3.cjk { font-family: "HG Mincho Light J" }
-		H3.ctl { font-family: "Arial Unicode MS" }
-	-->
-	</STYLE>
-</HEAD>
-<BODY LANG="en-US" DIR="LTR">
-<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A HREF="http://www.liggghts.com/"><FONT FACE="Liberation Serif, serif">LIGGGHTS
-WWW Site</FONT></A> <FONT FACE="Liberation Serif, serif">- <A HREF="Manual.html">LIGGGHTS
-Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
-<A HREF="Section_commands.html#comm">LIGGGHTS Commands</A></FONT> 
-</P>
+<CENTER><A HREF = "http://www.cfdem.com">LIGGGHTS WWW Site</A> - <A HREF = "Manual.html">LIGGGHTS Documentation</A> - <A HREF = "Section_commands.html#comm">LIGGGHTS Commands</A> 
+</CENTER>
+
+
+
+
+
+
 <HR>
-<H3 CLASS="western"><FONT FACE="Liberation Serif, serif">fix
-heat/gran command </FONT>
+
+<H3>fix heat/gran command 
 </H3>
-<P><FONT FACE="Liberation Serif, serif"><B>Syntax:</B> </FONT>
+<P><B>Syntax:</B>
 </P>
-<PRE STYLE="margin-bottom: 0.2in"><FONT FACE="Liberation Serif, serif">fix ID group-ID/gran T0 </FONT></PRE>
-<UL>
-	<LI><P STYLE="margin-bottom: 0in"><FONT FACE="Liberation Serif, serif">ID,
-	group-ID are documented in <A HREF="fix.html">fix</A></FONT> <FONT FACE="Liberation Serif, serif">command
-	</FONT>
-	</P>
-	<LI><P STYLE="margin-bottom: 0in"><FONT FACE="Liberation Serif, serif">heat/gran
-	= style name of this fix command </FONT>
-	</P>
-	<LI><P STYLE="margin-bottom: 0in"><FONT FACE="Liberation Serif, serif">T0
-	= initial (default) temperature for the particles </FONT>
-	</P>
+<PRE>fix ID group-ID heat/gran T0 
+</PRE>
+<UL><LI>ID, group-ID are documented in <A HREF = "fix.html">fix</A> command
+<LI>heat/gran = style name of this fix command
+<LI>T0 = initial (default) temperature for the particles 
 </UL>
-<P><FONT FACE="Liberation Serif, serif"><B>Examples:</B> </FONT>
+<P><B>Examples:</B>
 </P>
-<PRE STYLE="margin-bottom: 0.2in"><FONT FACE="Liberation Serif, serif">fix 3 hg heat/gran 273.15</FONT></PRE><P>
-<B>LIGGGHTS vs. LAMMPS Info: </B>
+<PRE>fix 3 hg heat/gran 273.15 
+</PRE>
+<P><B>LIGGGHTS vs. LAMMPS info:</B>
 </P>
-<P STYLE="margin-bottom: 0.2in; font-weight: normal"><FONT FACE="Liberation Serif, serif">This
-command is not available in LAMMPS.</FONT></P>
-<P><FONT FACE="Liberation Serif, serif"><B>Description:</B> </FONT>
+<P>This command is not available in LAMMPS.
 </P>
-<P><FONT FACE="Liberation Serif, serif">Calculates heat conduction
-between particles in contact and temperature update according to </FONT>
+<P><B>Description:</B>
 </P>
-<P><IMG SRC="fix_heat_gran_html_m2d34b011.png" NAME="graphics1" ALIGN=LEFT WIDTH=324 HEIGHT=332 BORDER=0><BR CLEAR=LEFT><FONT FACE="Liberation Serif, serif">It
-is assumed that the Temperature within the particles is uniform. To
-make particles adiabatic (so they do not change the temperature), do
-not include them in the fix group.</FONT></P>
-<P><FONT FACE="Liberation Serif, serif">Thermal conductivity and
-specific thermal capacity must be defined for each atom type used in
-the simulation by means of <A HREF="fix_property.html">fix_property_global</A>
-commands:</FONT></P>
-<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
-id all property/global thermalConductivity peratomtype value_1
-value_2 ... </FONT></FONT>
+<P>Calculates heat conduction between particles in contact and temperature update according to 
 </P>
-<P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value_i=value
-for thermal conductivity of atom type i) </FONT></FONT>
+<CENTER><IMG SRC = "Eqs/heat_gran.png">
+</CENTER>
+<P>It is assumed that the Temperature within the particles is uniform. 
+To make particles adiabatic (so they do not change the temperature), 
+do not include them in the fix group. However, heat transfer is calculated 
+between particles in the group and particles not in the group (but 
+temperature update is not performed for particles not in the group).
+Thermal conductivity and specific thermal capacity must be defined for 
+each atom type used in the simulation by means of 
+<A HREF = "fix_property.html">fix property/global</A> commands:
 </P>
-<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
-id all property/global thermalCapacity peratomtype value_1 value_2
-... </FONT></FONT>
+<PRE>fix id all property/global thermalConductivity peratomtype value_1 value_2 ... 
+(value_i=value for thermal conductivity of atom type i) 
+</PRE>
+<PRE>fix id all property/global thermalCapacity peratomtype value_1 value_2 ...
+(value_i=value for thermal capacity of atom type i) 
+</PRE>
+<P>To set Temperature for a group of particles, you can use the set command 
+with set keyword: 'property/atom' and set values: 'Temp T'. T is the 
+temperature value you want the particles to have. To set heat sources 
+(or sinks) for a group of particles, you can also use the set command 
+with the set keyword: 'property/atom' and the set values: 'heatSource h'. 
+h is the heat source value you want the particles to have (in Energy/time 
+units). A negative value means it is a heat sink. Examples would be: 
 </P>
-<P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value_i=value
-for thermal capacity of atom type i) </FONT></FONT>
+<PRE>set region halfbed property/peratom Temp 800.
+set region srcreg property/peratom heatSource 0.5 
+</PRE>
+<P>Area correction:
 </P>
-<P STYLE="margin-bottom: 0in"><BR>
+<P>Fix heat/gran can perform an area correction to account for the fact 
+that the Young's modulus might have been decreased in order to speed-up 
+the simulation. This area correction is activated by specifying the original 
+Young's modulus of each material by means of a fix_property_global command:
 </P>
-<P><FONT FACE="Liberation Serif, serif">To set Temperature for a
-group of particles, you can use the set command with set keyword:
-'property/peratom' and set values: 'Temp T'. T is the temperature
-value you want the particles to have </FONT>
+<PRE>fix id all property/global youngsModulusOriginal peratomtype value_1 value_2 ... 
+(value_i=value for original Young's modulus of atom type i) 
+</PRE>
+<P>This area correction is performed by scaling the contact area with 
+(Y*/Y*,orig)^a, where Y* and Y*,orig are calculated as defined in pair gran. 
+The scaling factor is given as a=1 for pair/gran/hooke/* and a=2/3 for 
+pair/gran/hertz/*.
 </P>
-<P><FONT FACE="Liberation Serif, serif">To set heat sources (or
-sinks) for a group of particles, you can also use the set command
-with the set keyword: 'property/peratom' and the set values:
-'heatSource h'. h is the heat source value you want the particles to
-have (in Energy/time units). A negative value means it is a heat
-sink.</FONT></P>
-<P><FONT FACE="Liberation Serif, serif">Examples: <BR>set region
-halfbed property/peratom Temp 800.<BR>set region srcreg
-property/peratom heatSource 0.5</FONT></P>
-<P><FONT FACE="Liberation Serif, serif"><B>Output information:</B></FONT></P>
-<P><FONT FACE="Liberation Serif, serif">You can visualize the heat
-sources by accessing f_heatSource[0], and the heatFluxes by
-f_heatFlux[0] . With f_Temp[0] or f_id[0] (where id is the fix id)
-you can access the per-particle temperature. You can also access the
-total thermal energy of the system (useful for the thermo command)
-with f_id .</FONT></P>
-<P><FONT FACE="Liberation Serif, serif"><B>Restart, fix_modify, run
-start/stop, minimize info:</B> </FONT>
+<P><B>Output info:</B>
 </P>
-<P><FONT FACE="Liberation Serif, serif">The particle temperature,
-heat flux and heat source is written to <A HREF="restart.html">binary
-restart files</A>, so a simulation can continue properly. None of the
-<A HREF="fix_modify.html">fix_modify</A></FONT> <FONT FACE="Liberation Serif, serif">options
-are relevant to this fix. </FONT>
+<P>You can visualize the heat sources by accessing f_heatSource[0], and the 
+heatFluxes by f_heatFlux[0] . With f_Temp[0] you can access the per-particle 
+temperature. You can also access the total thermal energy of the fix group 
+(useful for the thermo command) with f_id .
 </P>
-<P><FONT FACE="Liberation Serif, serif">This fix computes a scalar
-which can be accessed by various <A HREF="Section_howto.html#4_15">output
-commands</A>. This scalar is the most recent value by which velocites
-were scaled. The scalar value calculated by this fix is &quot;intensive&quot;.
-</FONT>
+<P><B>Restart, fix_modify, run start/stop, minimize info:</B>
 </P>
-<P><FONT FACE="Liberation Serif, serif">No parameter of this fix can
-be used with the </FONT><FONT FACE="Liberation Serif, serif"><I>start/stop</I></FONT>
-<FONT FACE="Liberation Serif, serif">keywords of the <A HREF="run.html">run</A></FONT>
-<FONT FACE="Liberation Serif, serif">command. This fix is not invoked
-during <A HREF="minimize.html">energy minimization</A>. </FONT>
+<P>The particle temperature and heat source is written is written to 
+<A HREF = "restart.html">binary restart files</A> so simulations can continue properly. 
+None of the <A HREF = "fix_modify.html">fix_modify</A> options are relevant to this fix.
 </P>
-<P><FONT FACE="Liberation Serif, serif"><B>Restrictions:</B> none </FONT>
+<P>This fix computes a scalar which can be accessed by various <A HREF = "Section_howto.html#4_15">output
+commands</A>.  This scalar is the total thermal energy
+of the fix group
 </P>
-<P><FONT FACE="Liberation Serif, serif"><B>Related commands:</B> </FONT>
+<P>No parameter of this fix can be used with the <I>start/stop</I> keywords of
+the <A HREF = "run.html">run</A> command.  This fix is not invoked during <A HREF = "minimize.html">energy
+minimization</A>.
 </P>
-<P><FONT FACE="Liberation Serif, serif"><A HREF="compute_temp.html">compute
-temp</A>, <A HREF="compute_temp_region.html">compute temp/region</A></FONT>
+<P><B>Restrictions:</B> 
 </P>
-<P><FONT FACE="Liberation Serif, serif"><B>Default:</B> none </FONT>
+<P>Area correction currently only works with pair styles pair/gran/hooke/* and pair/gran/hertz/*
 </P>
-</BODY>
+<P><B>Related commands:</B>
+</P>
+<P><A HREF = "compute_temp.html">compute temp</A>, <A HREF = "compute_temp_region.html">compute
+temp/region</A>
+</P>
+<P><B>Default:</B> none
+</P>
 </HTML>

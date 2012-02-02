@@ -30,6 +30,7 @@ class CfdDatacoupling : protected Pointers {
 
   CfdDatacoupling(class LAMMPS *lmp, int jarg,int narg, char **arg,class FixCfdCoupling* fc) : Pointers(lmp)
   {
+      iarg = jarg;
       this->fc = fc;
       is_parallel = true;
   }

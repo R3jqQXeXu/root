@@ -57,12 +57,14 @@ AtomVecGranular::AtomVecGranular(LAMMPS *lmp, int narg, char **arg) :
 
 void AtomVecGranular::init()
 {
-  // set radvary if particle diameters are time-varying due to aome fix
+  // set radvary if particle diameters are time-varying due to some fix
   for (int i = 0; i < modify->nfix; i++)
       if (modify->fix[i]->rad_mass_vary_flag) {
         radvary = 1;
         size_forward = 6;
       }
+
+  if(radvary) atom->radvary_flag = 1;
 }
 
 /* ----------------------------------------------------------------------

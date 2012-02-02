@@ -22,75 +22,129 @@ See the README file in the top-level LAMMPS directory.
 #include "math.h"
 #include "error.h"
 #include "update.h"
+#include "domain.h"
+#include "atom.h"
+#include "atom_vec.h"
+#include "fix.h"
+#include "myvector.h"
+#include "modify.h"
 
 using namespace LAMMPS_NS;
 
 ParticleToInsert::ParticleToInsert(LAMMPS* lmp,int ns) : Pointers(lmp)
 {
-        nspheres=ns;
-        x_ins=memory->create_2d_double_array(nspheres,3,"x_ins");
-        radius_ins=new double[nspheres];
-        x_bound=new double[3];
-        xcm=new double[3];
-        inertia=new double[3];
-        ex_space=new double[3];
-        ey_space=new double[3];
-        ez_space=new double[3];
-        displace=memory->create_2d_double_array(nspheres,3,"displace");
+        groupbit = 0;
+
+        nspheres = ns;
+
+        x_ins = memory->create_2d_double_array(nspheres,3,"x_ins");
+        radius_ins = new double[nspheres];
 }
+
+/* ---------------------------------------------------------------------- */
 
 ParticleToInsert::~ParticleToInsert()
 {
         memory->destroy_2d_double_array(x_ins);
         delete []radius_ins;
-        delete []x_bound;
-        delete []xcm;
-        delete []inertia;
-        delete []ex_space;
-        delete []ey_space;
-        delete []ez_space;
-        memory->destroy_2d_double_array(displace);
 }
 
-void ParticleToInsert::random_rotate(double rn1,double rn2, double rn3)
+/* ---------------------------------------------------------------------- */
+
+int ParticleToInsert::insert()
 {
-    
-    if(nspheres==1)return;
+    // perform the actual insertion
+    // add particles, set coordinate and radius
+    // set group mask to "all" plus fix groups
 
-    double *vert_before_rot;
-    double vert_after_rot[3];
+    int inserted = 0;
 
-    double phix=rn1*2.*M_PI;
-    double phiy=rn2*2.*M_PI;
-    double phiz=rn3*2.*M_PI;
-
-    double cos_phix = cos(phix);
-    double cos_phiy = cos(phiy);
-    double cos_phiz = cos(phiz);
-    double sin_phix = sin(phix);
-    double sin_phiy = sin(phiy);
-    double sin_phiz = sin(phiz);
-
-    for(int i=0;i<3;i++)
+    for(int i = 0; i < nspheres; i++)
     {
-        if     (i==0) vert_before_rot=ex_space;
-        else if(i==1) vert_before_rot=ey_space;
-        else if(i==2) vert_before_rot=ez_space;
+        if (domain->is_in_extended_subdomain(x_ins[i]))
+        {
+                
+                inserted++;
+                atom->avec->create_atom(atom_type,x_ins[i]);
+                int m = atom->nlocal - 1;
+                atom->mask[m] = 1 | groupbit;
+                vectorCopy3D(v_ins,atom->v[m]);
+                vectorCopy3D(omega_ins,atom->omega[m]);
+                atom->radius[m] = radius_ins[0];
+                atom->density[m] = density_ins;
+                atom->rmass[m] = mass_ins;
+                int nfix = modify->nfix;
+                Fix **fix = modify->fix;
+                for (int j = 0; j < nfix; j++)
+                   if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+        }
+    }
+    return inserted;
+}
 
-        vert_after_rot[0] = vert_before_rot[0]*cos_phiy*cos_phiz+vert_before_rot[1]*(cos_phiz*sin_phix*sin_phiy-cos_phix*sin_phiz)+vert_before_rot[2]*(cos_phix*cos_phiz*sin_phiy+sin_phix*sin_phiz);
-        vert_after_rot[1] = vert_before_rot[0]*cos_phiy*sin_phiz+vert_before_rot[2]*(-cos_phiz*sin_phix+cos_phix*sin_phiy*sin_phiz)+vert_before_rot[1]*(cos_phix*cos_phiz+sin_phix*sin_phiy*sin_phiz);
-        vert_after_rot[2] = vert_before_rot[2]*cos_phix*cos_phiy+vert_before_rot[1]*cos_phiy*sin_phix-vert_before_rot[0]*sin_phiy;
+/* ---------------------------------------------------------------------- */
 
-        if     (i==0) for(int j=0;j<3;j++) ex_space[j]=vert_after_rot[j];
-        else if(i==1) for(int j=0;j<3;j++) ey_space[j]=vert_after_rot[j];
-        else if(i==2) for(int j=0;j<3;j++) ez_space[j]=vert_after_rot[j];
+int ParticleToInsert::check_near_set_x_v_omega(double *x,double *v, double *omega, double *quat, double **xnear, int &nnear)
+{
+    // check sphere against all others in xnear
+    // if no overlap add to xnear
+    double del[3], rsq, radsum;
+
+    vectorCopy3D(x,x_ins[0]);
+
+    for(int i = 0; i < nnear; i++)
+    {
+        vectorSubtract3D(x_ins[0],xnear[i],del);
+        rsq = vectorMag3DSquared(del);
+        radsum = radius_ins[0] + xnear[i][3];
+
+        // no success in overlap
+        if (rsq <= radsum*radsum) return 0;
     }
 
-    for(int i=0;i<nspheres;i++)
+    // no overlap with any other - success
+
+    vectorCopy3D(v,v_ins);
+    vectorCopy3D(omega,omega_ins);
+
+    // add to xnear
+    vectorCopy3D(x_ins[0],xnear[nnear]);
+    xnear[nnear][3] = radius_ins[0];
+    nnear++;
+
+	return 1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int ParticleToInsert::set_x_v_omega(double *x, double *v, double *omega, double *quat)
+{
+    // add insertion position
+    // relative position of spheres to each other already stored at this point
+    for(int j = 0; j < nspheres; j++)
+        vectorAdd3D(x_ins[j],x,x_ins[j]);
+
+    // set velocity and omega
+    vectorCopy3D(v,v_ins);
+    vectorCopy3D(omega,omega_ins);
+
+    return nspheres;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ParticleToInsert::scale_pti(double r_scale)
+{
+    double r_scale3 = r_scale*r_scale*r_scale;
+
+    for(int i = 0; i < nspheres; i++)
     {
-        x_ins[i][0] = xcm[0] + ex_space[0]*displace[i][0] +   ey_space[0]*displace[i][1] +   ez_space[0]*displace[i][2];
-        x_ins[i][1] = xcm[1] + ex_space[1]*displace[i][0] +   ey_space[1]*displace[i][1] +   ez_space[1]*displace[i][2];
-        x_ins[i][2] = xcm[2] + ex_space[2]*displace[i][0] +   ey_space[2]*displace[i][1] +   ez_space[2]*displace[i][2];
+        radius_ins[i] *= r_scale;
+        vectorScalarMult3D(x_ins[i],r_scale);
     }
 
+    volume_ins *= r_scale3;
+    mass_ins *= r_scale3;
+
+    r_bound_ins *= r_scale;
 }

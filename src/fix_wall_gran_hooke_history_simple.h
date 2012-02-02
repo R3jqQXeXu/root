@@ -46,6 +46,7 @@ class FixWallGranHookeHistorySimple : public FixWallGranHookeHistory {
   virtual void deriveContactModelParams(int ip, double deltan, double meff_wall, double &kn, double &kt, double &gamman, double &gammat, double &xmu,double &rmu);
   class FixPropertyGlobal *k_n1,*k_t1,*gamma_n1,*gamma_t1;
   double **k_n,**k_t,**gamma_n,**gamma_t;
+  int damp_massflag;
 };
 
 }

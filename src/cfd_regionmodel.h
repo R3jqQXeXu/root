@@ -48,7 +48,7 @@ class CfdRegionmodel : protected Pointers {
      fc->add_push_property(name,type);
   }
 
-  int add_pull_property(char *name,char *type)
+  void add_pull_property(char *name,char *type)
   {
      fc->add_pull_property(name,type);
   }

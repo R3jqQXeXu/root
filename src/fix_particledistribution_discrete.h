@@ -48,15 +48,39 @@ class FixParticledistributionDiscrete : public Fix {
   int max_type();
   int min_type();
   double max_rad(int);
+  double max_rad(){return maxrad;}
+  double max_r_bound(){return maxrbound;}
   int max_nspheres();
+
+  int random_init_single(int);         
+  class Region* randomize_single();             
+
+  void random_init_list(int);
+  int randomize_list(int,int,int);        
+
+  void finalize_insertion();
+
+  class ParticleToInsert *pti;
+
+  class ParticleToInsert **pti_list;
+  int n_pti, n_pti_max;
+  int insert(int n);
+
+  inline int n_particletemplates()
+  {
+      return ntemplates;
+  }
+
+  inline class FixTemplateSphere** particletemplates()
+  {
+      return templates;
+  }
+
+ protected:
 
   int ninserted;
   int ninsert;
-  int random_init(int);         
-  void randomize();             
-  class ParticleToInsert* pti;
 
- protected:
   class RanPark *random;
   int seed;
 
@@ -80,6 +104,9 @@ class FixParticledistributionDiscrete : public Fix {
 
   //maximum number of spheres a template has
   int maxnspheres;
+
+  //maximum radius and bounding sphere radius
+  double maxrad,maxrbound;
 };
 
 }

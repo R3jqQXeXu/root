@@ -48,6 +48,8 @@ ComputeCoordGran::ComputeCoordGran(LAMMPS *lmp, int narg, char **arg) :
 
   nmax = 0;
   coordination = NULL;
+
+  if(update->ntimestep > 0 && !modify->fix_restart_in_progress()) error->all("Need to define compute coord/gran before first run");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -63,14 +65,16 @@ void ComputeCoordGran::init()
 {
   if (force->pair == NULL)
     error->all("Compute coord/gran requires a pair style be defined");
+
   if(!atom->radius_flag) error->all("Compute coord/gran requires particles to store radius");
+
   // need an occasional full neighbor list
 
   int irequest = neighbor->request((void *) this);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->compute = 1;
   neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->gran = 1;
+  neighbor->requests[irequest]->full = 1; 
   neighbor->requests[irequest]->occasional = 1;
 
   int count = 0;

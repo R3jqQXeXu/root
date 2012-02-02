@@ -34,10 +34,6 @@ enum{RAN_STYLE_CONSTANT_FP,RAN_STYLE_UNIFORM_FP,RAN_STYLE_GAUSSIAN_FP};
 namespace LAMMPS_NS {
 
 class FixPourDev : public Fix {
-  friend class PairGranHertzHistory;
-  friend class PairGranHooke;
-  friend class PairGranHookeHistory;
-  friend class FixPourMultiSphere;
   friend class MechParamGran;
 
  public:
@@ -87,6 +83,7 @@ class FixPourDev : public Fix {
   int nRegEx;
   class Region **regExList;
   int isInExemptRegion(double *);
+  virtual void update_region(class Region *region) {}
 
   int overlap(int);
   void xyz_random(double, double *);

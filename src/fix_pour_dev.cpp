@@ -191,8 +191,7 @@ FixPourDev::FixPourDev(LAMMPS *lmp, int narg, char **arg) :
     else error->all("Illegal fix pour command");
   }
 
-  if(massflowrate!=0.&&comm->me==0&&screen)  fprintf(screen, "INFO: You are specifying a massflow rate. This may result in a lower volume fraction than specified.\n");
-  if(massflowrate!=0.&&comm->me==0&&logfile) fprintf(logfile,"INFO: You are specifying a massflow rate. This may result in a lower volume fraction than specified.\n");
+  if(massflowrate!=0.&&comm->me==0)  error->info("You are specifying a massflow rate. This may result in a lower volume fraction than specified.\n");
 
   // error checks on region and its extent being inside simulation box
 
@@ -299,7 +298,7 @@ FixPourDev::FixPourDev(LAMMPS *lmp, int narg, char **arg) :
   //use diameter of smallest particle class as reference
 
   double v_relative,delta;
-  double v0_add=-vz-sqrt(vz*vz-2.0*grav*(fpdd->templates[fpdd->distorder[fpdd->ntemplates-1]]->pti->r_bound));
+  double v0_add=-vz-sqrt(vz*vz-2.0*grav*(fpdd->templates[fpdd->distorder[fpdd->ntemplates-1]]->max_rad()));
   
   if (domain->dimension == 3) {
     v_relative = vz - rate;
@@ -440,7 +439,7 @@ void FixPourDev::pre_exchange()
   if (ninserted + nbodies_new > ninsert) nbodies_new = ninsert - ninserted;
 
   //init number of bodies to be inserted
-  nbodies_new = fpdd->random_init(nbodies_new);
+  nbodies_new = fpdd->random_init_single(nbodies_new);
 
   if(nbodies_new == 0)
   {
@@ -506,6 +505,7 @@ void FixPourDev::pre_exchange()
 
   double *ptr = NULL;
   if (ncount) ptr = xmine[0];
+
   MPI_Allgatherv(ptr,7*ncount,MPI_DOUBLE,xnear[0],recvcounts,displs,MPI_DOUBLE,world);
 
   // insert new atoms into xnear list, one by one
@@ -531,8 +531,10 @@ void FixPourDev::pre_exchange()
   while (nspheres_near < nspheres_new) {
 
     //randomize particle properties
-    fpdd->randomize();
+    Region *reg_update = fpdd->randomize_single();
     isInExempt = 0; 
+
+    if(reg_update) update_region(reg_update);
 
     do
     {
@@ -740,7 +742,7 @@ void FixPourDev::xyz_random(double h, double *coord)
 
 double FixPourDev::shift_randompos()
 {
-    return fpdd->pti->r_bound;
+    return fpdd->max_r_bound();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -837,6 +839,8 @@ double FixPourDev::rand_pour(double param1, double param2, int style)
     {
         return param1;
     }
+    else error->all("Faulty implementation");
+    return 0.;
 }
 
 /* ---------------------------------------------------------------------- */

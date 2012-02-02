@@ -44,7 +44,7 @@ class FixCfdCouplingForce : public FixCfdCoupling {
  protected:
   virtual void special_settings();
 
-  class FixPropertyPerAtom* dragforce;
+  class FixPropertyAtom* dragforce;
 };
 
 }

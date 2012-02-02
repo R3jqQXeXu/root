@@ -42,9 +42,12 @@ class PairGran : public Pair {
 
   PairGran(class LAMMPS *);
   ~PairGran();
+
+  /* INHERITED FROM Pair */
+
   virtual void compute(int, int);
-  virtual void compute(int, int,int)=0;
-  virtual void settings(int, char **) =0;
+  virtual void compute(int, int,int) = 0;
+  virtual void settings(int, char **) = 0;
   virtual void coeff(int, char **);
   virtual void init_style();
   virtual void init_substyle() {} 
@@ -55,7 +58,12 @@ class PairGran : public Pair {
   virtual void write_restart_settings(FILE *){}
   virtual void read_restart_settings(FILE *){}
   virtual void reset_dt();
+
+  /* PUBLIC ACCESS FUNCTIONS */
+
   int is_history(){return history;}
+  int dnum_pair(){return dnum;}
+  class FixRigid* fr_pair(){return fr;}
 
   class MechParamGran *mpg;
 
@@ -65,9 +73,24 @@ class PairGran : public Pair {
   void register_compute_pair_local(class ComputePairGranLocal *,int&);
   void unregister_compute_pair_local(class ComputePairGranLocal *ptr);
 
+  virtual void updatePtrs();
+
+  // stuff for tracking energy
+  int energytrack_enable;
+  class FixPropertyAtom* fppaCPEn; //collision potential energy normal
+  class FixPropertyAtom* fppaCDEn; //collision dissipation energy normal
+  class FixPropertyAtom* fppaCPEt; //collision potential energy tang
+  class FixPropertyAtom* fppaCDEVt; //collision dissipation energy viscous tang
+  class FixPropertyAtom* fppaCDEFt; //collision dissipation energy friction tang
+  class FixPropertyAtom* fppaCTFW; //collision tangential force work
+  class FixPropertyAtom* fppaDEH; //dissipation energy of history term (viscous and friction, accumulated over time)
+  double *CPEn, *CDEn, *CPEt, *CDEVt, *CDEFt, *CTFW, *DEH;
+
+  // stuff for compute pair gran local
   int cpl_enable;
-  class FixRigid* fr;
   class ComputePairGranLocal *cpl;
+
+  class FixRigid* fr;
 
   double dt;
   int freeze_group_bit;

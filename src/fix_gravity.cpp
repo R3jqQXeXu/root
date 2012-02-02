@@ -23,6 +23,7 @@
 #include "error.h"
 #include "fix_rigid.h"
 #include "modify.h"
+#include "force.h" 
 
 using namespace LAMMPS_NS;
 
@@ -200,4 +201,13 @@ void FixGravity::post_force(int vflag)
 void FixGravity::post_force_respa(int vflag, int ilevel, int iloop)
 {
   if (ilevel == nlevels_respa-1) post_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixGravity::get_gravity(double *grav)
+{
+    grav[0] = xgrav * magnitude * force->ftm2v;
+    grav[1] = ygrav * magnitude * force->ftm2v;
+    grav[2] = zgrav * magnitude * force->ftm2v;
 }

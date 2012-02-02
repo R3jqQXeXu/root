@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -37,13 +37,28 @@ class Region : protected Pointers {
   };
   Contact *contact;           // list of contacts
   int cmax;                   // max # of contacts possible with region
- 
+
   Region(class LAMMPS *, int, char **);
   virtual ~Region();
   void init();
   virtual int dynamic_check();
   int match(double, double, double);
   int surface(double, double, double, double);
+
+  void reset_random(int);
+
+  // generates a random point within the region
+  virtual void generate_random(double *);
+
+  // generates a random point that has a min distance from surface
+  virtual void generate_random_cut_away(double *,double);
+
+  // generates a random point within cut from surface
+  virtual void generate_random_within_cut(double *,double);
+
+  int match_cut(double *,double);
+
+  virtual double volume_mc(int);
 
   virtual int inside(double, double, double) = 0;
   virtual int surface_interior(double *, double) = 0;
@@ -52,6 +67,9 @@ class Region : protected Pointers {
  protected:
   void options(int, char **);
   void add_contact(int, double *, double, double, double);
+
+  int seed;
+  class RanPark *random;
 
  private:
   int time_origin;

@@ -18,6 +18,8 @@ the GNU General Public License.
 See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
+// contributing author for rotation option: Evan Smuts (U Cape Town)
+
 #ifndef LMP_STLTRI_H
 #define LMP_STLTRI_H
 
@@ -27,32 +29,47 @@ See the README file in the top-level LAMMPS directory.
 namespace LAMMPS_NS {
 
 class STLtri: protected Pointers {
-
  public:
   STLtri(LAMMPS *lmp);
   ~STLtri();
 
   void grow_arrays();
-  void pack_restart();
-  void unpack_restart();
   void initMove(double);
   void initConveyor();
+  void initRotation(double);
   void pointToVec();
   void vecToPoint();
   void getTriBoundBox(int, double *, double *,double);
+  void getMeshBoundBox(double *xmin, double *xmax);
   void before_rebuild();
   bool are_coplanar_neighs(int i1,int i2);
-  int mesh_moving(){return (movingMesh | conveyor);}
+  bool is_planar();
+  void normal_vec(double *vec,int i);
+
+  inline int mesh_moving(){return (movingMesh | conveyor | rotation);}
+  inline double const* const* const* vnode() { return v_node; }
+
+  int is_on_surface(double *pos);
+  int is_in_tri(double *pos,int i);
+  void generate_random(double *,class RanPark* random);
 
   int nTri,nTriMax;
 
   int movingMesh;  
   int conveyor;    
   double conv_vel[3];
+
+  int rotation;
+  double rot_axis[3];
+  double rot_origin[3];
+  double rot_omega;
+
   double skinSafetyFactor; 
 
   int* EDGE_INACTIVE;
   int* CORNER_INACTIVE;
+
+  double Area_total;
 
    #define VECPERTRI 11
 

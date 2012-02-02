@@ -30,7 +30,7 @@ See the README file in the top-level LAMMPS directory.
 #include "math.h"
 #include "myvector.h"
 #include "fix_cfd_coupling_force.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_atom.h"
 
 using namespace LAMMPS_NS;
 
@@ -92,16 +92,16 @@ void FixCfdCouplingForce::special_settings()
         char* fixarg[11];
         fixarg[0]="dragforce";
         fixarg[1]="all";
-        fixarg[2]="property/peratom";
+        fixarg[2]="property/atom";
         fixarg[3]="dragforce";
         fixarg[4]="vector"; 
-        fixarg[5]="no";    
-        fixarg[6]="yes";    
+        fixarg[5]="yes";    
+        fixarg[6]="no";    
         fixarg[7]="no";    
         fixarg[8]="0.";
         fixarg[9]="0.";
         fixarg[10]="0.";
-        dragforce = modify->add_fix_property_peratom(11,fixarg);
+        dragforce = modify->add_fix_property_atom(11,fixarg);
   }
 }
 

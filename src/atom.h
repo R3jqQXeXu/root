@@ -83,6 +83,8 @@ class Atom : protected Pointers {
   int radius_flag,density_flag,rmass_flag,vfrac_flag;
   int n_bondhist;
 
+  int radvary_flag;
+
   // extra peratom info in restart file destined for fix & diag
 
   double **extra;

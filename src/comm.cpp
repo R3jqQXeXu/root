@@ -33,6 +33,7 @@
 #include "compute.h"
 #include "error.h"
 #include "memory.h"
+#include "fix_insert.h"
 
 using namespace LAMMPS_NS;
 
@@ -251,6 +252,15 @@ void Comm::setup()
 
   double cut = MAX(neighbor->cutneighmax,cutghostuser);
 
+  int nfix = modify->nfix;
+  Fix **fix = modify->fix;
+
+  for(int ifix = 0; ifix < nfix; ifix++)
+  {
+      double cut_fix = fix[ifix]->extend_cut_ghost();
+      cut = MAX(cut,cut_fix);
+  }
+  
   if (triclinic == 0) {
     prd = domain->prd;
     sublo = domain->sublo;

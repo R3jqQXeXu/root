@@ -38,8 +38,9 @@ See the README file in the top-level LAMMPS directory.
 #include "comm.h"
 #include "fix_wall_gran.h"
 #include "triSpherePenetration.h"
-#include "fix_propertyPerAtom.h"
-#include "fix_meshGran.h"
+#include "fix_property_atom.h"
+#include "fix_mesh_gran.h"
+#include "math_extra_liggghts.h"
 
 using namespace LAMMPS_NS;
 
@@ -108,7 +109,7 @@ FixTriNeighlist::FixTriNeighlist(LAMMPS *lmp, int narg, char **arg) :
 
 FixTriNeighlist::~FixTriNeighlist()
 {
-    delete []nTriList;
+    memory->sfree(nTriList);
     memory->destroy_3d_int_array(tri_neighlist);
 
     // unregister callbacks to this fix from Atom class
@@ -172,7 +173,8 @@ void FixTriNeighlist::pre_force(int vflag)
     buildNeighList = 0;
 
     //unset non-touching contacts
-    unset_nontouching();
+    
+    //unset_nontouching();
 
     for(int iList = 0; iList < nFixMeshGran; iList++)
     {
@@ -480,9 +482,9 @@ inline int FixTriNeighlist::check_dangerous(double dist, int append,double *x,do
     
     if(dist >= 0. || append != 1) return 0;
 
-    if(xper && (MathExtra::abs(x[0] - domain->boxhi[0]) < skin/2. || MathExtra::abs(x[0] - domain->boxlo[0]) < skin/2.)) return 0;
-    if(yper && (MathExtra::abs(x[1] - domain->boxhi[1]) < skin/2. || MathExtra::abs(x[1] - domain->boxlo[1]) < skin/2.)) return 0;
-    if(zper && (MathExtra::abs(x[2] - domain->boxhi[2]) < skin/2. || MathExtra::abs(x[2] - domain->boxlo[2]) < skin/2.)) return 0;
+    if(xper && (MathExtraLiggghts::abs(x[0] - domain->boxhi[0]) < skin/2. || MathExtraLiggghts::abs(x[0] - domain->boxlo[0]) < skin/2.)) return 0;
+    if(yper && (MathExtraLiggghts::abs(x[1] - domain->boxhi[1]) < skin/2. || MathExtraLiggghts::abs(x[1] - domain->boxlo[1]) < skin/2.)) return 0;
+    if(zper && (MathExtraLiggghts::abs(x[2] - domain->boxhi[2]) < skin/2. || MathExtraLiggghts::abs(x[2] - domain->boxlo[2]) < skin/2.)) return 0;
 
     return 1;
 }

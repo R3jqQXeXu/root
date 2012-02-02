@@ -3,15 +3,17 @@
 <HEAD>
 	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
+	<META NAME="CHANGED" CONTENT="20110831;12321500">
 	<META NAME="CHANGEDBY" CONTENT="christophkloss ">
-	<META NAME="CHANGED" CONTENT="20100603;12312400">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
 		H3.cjk { font-family: "HG Mincho Light J" }
 		H3.ctl { font-family: "Arial Unicode MS" }
+		PRE.cjk { font-family: "DejaVu Sans", monospace }
 	-->
 	</STYLE>
 </HEAD>
@@ -25,7 +27,7 @@ WWW Site</A> - <A HREF="Manual.html">LAMMPS Documentation</A> -
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID particletemplate/sphere seed keyword values ... </PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ID group-ID particletemplate/sphere seed keyword values ... </PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
 	command 
@@ -45,18 +47,19 @@ WWW Site</A> - <A HREF="Manual.html">LAMMPS Documentation</A> -
 <UL>
 	<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>atom_type</I>
 	value = atom type assigned to this particle template<BR><I>density</I>
-	values =  random_style param1 (param2)</FONT></FONT></P>
-	<PRE>    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>random_style = 'constant' or 'uniform' or 'gaussian'<BR>    param1 = density for 'constant', low value of density for 'uniform', expectancy value for 'gaussian'<BR>	    param2 = omitted for 'constant', high value of density for 'uniform', sigma value for 'gaussian'</FONT></FONT></PRE><P STYLE="margin-bottom: 0in">
+	values = random_style param1 (param2)</FONT></FONT></P>
+	<PRE CLASS="western">    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>random_style = 'constant' or 'uniform' or 'gaussian'</FONT></FONT>
+    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>param1 = density for 'constant', low value of density for 'uniform', expectancy value for 'gaussian'</FONT></FONT>
+            <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>param2 = omitted for 'constant', high value of density for 'uniform', sigma value for 'gaussian'</FONT></FONT></PRE><P STYLE="margin-bottom: 0in">
 	<FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>radius</I>
-	values =  random_style param1 (param2)</FONT></FONT></P>
-	<PRE>    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>random_style = 'constant' or 'uniform' or 'gaussian'<BR>    param1 = radius for 'constant', low value of radius for 'uniform', expectancy value for 'gaussian'<BR>	    param2 = omitted for 'constant', high value of radius for 'uniform', sigma value for 'gaussian'</I></FONT></FONT></PRE>
-</UL>
-<UL>
-	<PRE></PRE>
+	values = random_style param1 (param2)</FONT></FONT></P>
+	<PRE CLASS="western">    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>random_style = 'constant' or 'uniform' </I></FONT></FONT>
+    <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>param1 = radius for 'constant', low value of radius for 'uniform'</I></FONT></FONT>
+            <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><I>param2 = omitted for 'constant', high value of radius for 'uniform'</I></FONT></FONT></PRE>
 </UL>
 <P><B>Examples:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 2500 radius constant 0.0015</PRE><P>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix pts1 all particletemplate/sphere 1 atom_type 1 density constant 2500 radius constant 0.0015</PRE><P>
 <B>LIGGGHTS vs. LAMMPS Info: </B>
 </P>
 <P STYLE="font-weight: normal">This LIGGGHTS command is not available
@@ -91,8 +94,9 @@ minimization</A>.
 </P>
 <P><B>Related commands:</B> 
 </P>
-<P ALIGN=LEFT><A HREF="">fix_particletemplate_sphere</A> <A HREF="fix_pour_dev.html"><SPAN STYLE="font-weight: normal">fix_pour_dev</SPAN></A></P>
-<P><B>Default:</B> radius = 1.0, density = 1.0, atom_type = 1  
+<P ALIGN=LEFT><A HREF="../doc">fix_particletemplate_sphere</A>
+<A HREF="fix_pour_dev.html"><SPAN STYLE="font-weight: normal">fix_pour_dev</SPAN></A></P>
+<P><B>Default:</B> radius = 1.0, density = 1.0, atom_type = 1 
 </P>
 </BODY>
 </HTML>

@@ -5,4 +5,5 @@
 #include "region_plane.h"
 #include "region_prism.h"
 #include "region_sphere.h"
+#include "region_tetmesh.h"
 #include "region_union.h"

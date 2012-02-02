@@ -23,7 +23,7 @@ See the README file in the top-level LAMMPS directory.
 #include "stdlib.h"
 #include "string.h"
 #include "ctype.h"
-#include "input.h"
+#include "stl_input.h"
 #include "style_command.h"
 #include "universe.h"
 #include "atom.h"
@@ -49,18 +49,24 @@ See the README file in the top-level LAMMPS directory.
 #include "variable.h"
 #include "error.h"
 #include "memory.h"
-#include "fix_meshGran.h" 
+#include "fix_mesh_gran.h" 
 
 using namespace LAMMPS_NS;
 
 #define MAXLINE 2048
 #define DELTA 4
 
+InputSTL::InputSTL(LAMMPS *lmp, int argc, char **argv) : Input(lmp, argc, argv)
+{}
+
+InputSTL::~InputSTL()
+{}
+
 /* ----------------------------------------------------------------------
    process STL file
 ------------------------------------------------------------------------- */
 
-void Input::stlfile(class FixMeshGran *mesh)
+void InputSTL::stlfile(class FixMeshGran *mesh)
 {
   int n;
   int *iTri = 0, *nTriMax = 0;
@@ -68,13 +74,6 @@ void Input::stlfile(class FixMeshGran *mesh)
   bool insideSolidObject = false;
   bool insideFacet = false;
   bool insideOuterLoop = false;
-
-  double xlo = lmp->domain->boxlo[0];
-  double xhi = lmp->domain->boxhi[0];
-  double ylo = lmp->domain->boxlo[1];
-  double yhi = lmp->domain->boxhi[1];
-  double zlo = lmp->domain->boxlo[2];
-  double zhi = lmp->domain->boxhi[2];
 
   iTri = &(mesh->STLdata->nTri);
   nTriMax = &(mesh->STLdata->nTriMax);
@@ -93,10 +92,10 @@ void Input::stlfile(class FixMeshGran *mesh)
     // if line ends in continuation char '&', concatenate next line(s)
     // n = str length of line
     if (me == 0) {
-      if (fgets(line,MAXLINE,stl___file) == NULL) n = 0;
+      if (fgets(line,MAXLINE,nonlammps_file) == NULL) n = 0;
       else n = strlen(line) + 1;
       while (n >= 3 && line[n-3] == '&') {
-	if (fgets(&line[n-3],MAXLINE-n+3,stl___file) == NULL) n = 0;
+	if (fgets(&line[n-3],MAXLINE-n+3,nonlammps_file) == NULL) n = 0;
 	else n = strlen(line) + 1;
       }
     }
@@ -120,14 +119,8 @@ void Input::stlfile(class FixMeshGran *mesh)
       error->all(str);
     }
 
-    // echo the command unless scanning for label
-    if (me == 0 && label_active == 0) {
-      if (echo_screen && screen) fprintf(screen,"%s",line);
-      if (echo_log && logfile) fprintf(logfile,"%s",line);
-    }
-
     //parse one line from the stl file
-    stlparse();
+    parse_nonlammps();
 
     //for (int jj=0; jj<5; jj++) fprintf(screen,"arg %d: %s  \n",jj,arg[jj]);
 
@@ -169,7 +162,7 @@ void Input::stlfile(class FixMeshGran *mesh)
 
       //reallocate if more than n
       if (*iTri>=*nTriMax){
-        if (me == 0)fprintf(screen,"Growing STL input arrays\n");
+        // if (me == 0)fprintf(screen,"Growing STL input arrays\n");
         mesh->STLdata->grow_arrays();
       }
 
@@ -247,14 +240,8 @@ void Input::stlfile(class FixMeshGran *mesh)
       for (int j=0;j<3;j++) nd[(*iTri)-1][iVertex][j]=vert_after_rot[j];
 
       //if a vertex is outside the simulation domain, generate a warning
-      if ((nd[(*iTri)-1][iVertex][0]<xlo) || (nd[(*iTri)-1][iVertex][1]<ylo) || (nd[(*iTri)-1][iVertex][2]<zlo))
+      if (!domain->is_in_domain(nd[(*iTri)-1][iVertex]))
       {
-          flag_outside = 1;
-          
-      }
-      if ((nd[(*iTri)-1][iVertex][0]>xhi) || (nd[(*iTri)-1][iVertex][1]>yhi) || (nd[(*iTri)-1][iVertex][2]>zhi))
-      {
-
           flag_outside = 1;
           
       }
@@ -273,89 +260,25 @@ void Input::stlfile(class FixMeshGran *mesh)
 }
 
 /* ----------------------------------------------------------------------
-   process all input from filename
+   process all input from file
 ------------------------------------------------------------------------- */
 
-void Input::stlfile(const char *filename, class FixMeshGran *mesh)
+void InputSTL::stlfile(const char *filename, class FixMeshGran *mesh)
 {
-
-  // error if another nested file still open
-  // if single open file is not stdin, close it
-  // open new filename and set stl___file
 
   if (me == 0) {
 
-    stl___file = fopen(filename,"r");
-    if (stl___file == NULL) {
+    nonlammps_file = fopen(filename,"r");
+    if (nonlammps_file == NULL) {
       char str[128];
-      sprintf(str,"Cannot open stl file %s",filename);
+      sprintf(str,"Cannot open file %s",filename);
       error->one(str);
     }
-  } else stl___file = NULL;
+  } else nonlammps_file = NULL;
 
   stlfile(mesh);
 
-  if(stl___file) fclose(stl___file);
+  if(nonlammps_file) fclose(nonlammps_file);
 
 }
 
-/* ----------------------------------------------------------------------
-   parse the stl file and write the data into a FixMeshGran
-------------------------------------------------------------------------- */
-
-void Input::stlparse()
-{
-  // make a copy to work on
-
-  strcpy(copy,line);
-
-  // strip any # comment by resetting string terminator
-  // do not strip # inside double quotes
-
-  //if (me==0) fprintf(screen,"parsing line %s",copy);
-
-  int level = 0;
-  char *ptr = copy;
-  while (*ptr) {
-    if (*ptr == '#' && level == 0) {
-      *ptr = '\0';
-      break;
-    }
-    if (*ptr == '"') {
-      if (level == 0) level = 1;
-      else level = 0;
-    }
-    ptr++;
-  }
-
-  // point arg[] at each arg
-  // treat text between double quotes as one arg
-  // insert string terminators in copy to delimit args
-
-  narg = 0;
-  maxarg = DELTA;
-  arg = (char **) memory->srealloc(arg,maxarg*sizeof(char *),"Input:arg");
-  arg[narg] = strtok(copy," \t\n\r\f");
-  if (arg[narg]) narg++;
-
-  while (1) {
-    if (narg == maxarg) {
-      maxarg += DELTA;
-      arg = (char **) memory->srealloc(arg,maxarg*sizeof(char *),"Input:arg");
-    }
-    arg[narg] = strtok(NULL," \t\n\r\f");
-    if (arg[narg] && arg[narg][0] == '\"') {
-      arg[narg] = &arg[narg][1];
-      if (arg[narg][strlen(arg[narg])-1] == '\"')
-	arg[narg][strlen(arg[narg])-1] = '\0';
-      else {
-	arg[narg][strlen(arg[narg])] = ' ';
-	ptr = strtok(arg[narg],"\"");
-	if (ptr == NULL) error->all("Unbalanced quotes in input line");
-      }
-    }
-    if (arg[narg]) narg++;
-    else break;
-  }
-
-}

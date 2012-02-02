@@ -139,6 +139,8 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   atom_style = NULL;
   avec = NULL;
   create_avec("atomic",0,NULL);
+
+  radvary_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */

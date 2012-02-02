@@ -28,7 +28,7 @@ See the README file in the top-level LAMMPS directory.
 #include "input.h"
 #include "variable.h"
 #include "error.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_atom.h"
 #include "modify.h"
 #include "update.h"
 
@@ -201,12 +201,12 @@ void FixAdapt::post_create()
   {
     char **fixarg;
     fixarg=new char*[9];
-    for (int kk=0;kk<9;kk++) fixarg[kk]=new char[30];
+    for (int kk=0;kk<9;kk++) fixarg[kk]=new char[50];
     
     sprintf(fixarg[0],"adaptProp_%s",id);
     sprintf(fixid,    "adaptProp_%s",id);
     fixarg[1]="all";
-    fixarg[2]="property/peratom";
+    fixarg[2]="property/atom";
     sprintf(fixarg[3],"adaptProp_%s",id);
     fixarg[4]="scalar"; 
     fixarg[5]="no";    
@@ -239,7 +239,7 @@ void FixAdapt::pre_force(int vflag)
 
   modify->clearstep_compute();
 
-  if(atomstyle_flag)fppat=static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property(fixid,"property/peratom","scalar",0,0)]);
+  if(atomstyle_flag) fppat = static_cast<FixPropertyAtom*>(modify->find_fix_property(fixid,"property/atom","scalar",0,0));
 
   for (int m = 0; m < nadapt; m++) {
     double value;

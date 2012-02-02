@@ -688,6 +688,8 @@ double FixPour::rand_pour(double param1, double param2, int style)
     {
         error->all("Discrete random not implemented yet");
     }
+    else error->one("Faulty implementation");
+    return 0.;
 }
 
 /* ---------------------------------------------------------------------- */

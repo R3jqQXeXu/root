@@ -34,7 +34,7 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "error.h"
 #include "fix_move_tri.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 
 using namespace LAMMPS_NS;
 
@@ -58,16 +58,16 @@ FixMoveTri::FixMoveTri(LAMMPS *lmp, int narg, char **arg) :
 
   //the arg before must be a valid fix of style fix mesh/gran 
   //if not found, assume that the last arg is the reference to the fix mesh gran
-  char* f_id=arg[narg-2];
-  int f_i=modify->find_fix(f_id);
-  if (f_i==-1)
+  char* f_id = arg[narg-2];
+  int f_i = modify->find_fix(f_id);
+  if (f_i == -1)
   {
-      f_id=arg[narg-1];
-      f_i=modify->find_fix(f_id);
+      f_id = arg[narg-1];
+      f_i = modify->find_fix(f_id);
   }
 
-  if (f_i==-1) error->all("Can not find the fix mesh/gran to apply the fix move/mesh/gran to");
-  if (strncmp(modify->fix[f_i]->style,"mesh/gran",8)!=0) error->all("Can apply fix move/mesh/gran only to a fix of type fix mesh/gran");
+  if (f_i == -1) error->all("Can not find the fix mesh/gran to apply the fix move/mesh/gran to");
+  if (strncmp(modify->fix[f_i]->style,"mesh/gran",8)) error->all("Can apply fix move/mesh/gran only to a fix of type fix mesh/gran");
 
   time_integrate = 0; 
   time_depend = 1;
@@ -299,7 +299,7 @@ FixMoveTri::FixMoveTri(LAMMPS *lmp, int narg, char **arg) :
 
 FixMoveTri::~FixMoveTri()
 {
-  STL_tri->movingMesh=0;
+  STL_tri->movingMesh = 0;
 
   // delete locally stored arrays
   memory->destroy_2d_double_array(displace);

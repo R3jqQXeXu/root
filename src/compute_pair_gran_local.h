@@ -21,6 +21,7 @@ See the README file in the top-level LAMMPS directory.
 #ifdef COMPUTE_CLASS
 
 ComputeStyle(pair/gran/local,ComputePairGranLocal)
+ComputeStyle(wall/gran/local,ComputePairGranLocal)
 
 #else
 
@@ -42,15 +43,28 @@ class ComputePairGranLocal : public Compute {
   void compute_local();
   double memory_usage();
   void add_pair(int i,int j,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist);
-  
+  void add_heat(int i,int j,double hf);
+  void add_wall_1(int iFMG,int iTri,int iP,double *contact_point);
+  void add_wall_2(int i,double fx,double fy,double fz,double tor1,double tor2,double tor3,double *hist,double rsq);
+  void add_heat_wall(int i,double hf);
+
  private:
   int nvalues;
   int ncount;
+  int newton_pair;
 
+  // if 0, pair data is extracted
+  // if 1, wall data is extracted
+  int wall;
+
+  // pointers to classes holding the data
   class PairGran *pairgran;
+  class FixHeatGran *fixheat;
+  class FixWallGran *fixwall;
+
   int ipair;
 
-  int posflag,idflag,fflag,tflag,hflag;
+  int posflag,idflag,fflag,tflag,hflag,aflag,hfflag;
 
   int dnum;
 
@@ -61,6 +75,7 @@ class ComputePairGranLocal : public Compute {
   class NeighList *list;
 
   int count_pairs();
+  int count_wallcontacts();
   void reallocate(int);
 };
 

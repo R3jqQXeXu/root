@@ -25,8 +25,8 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "modify.h"
 #include "math.h"
-#include "fix_propertyPerAtom.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_atom.h"
+#include "fix_property_global.h"
 #include "fix_cfd_coupling.h"
 #include "cfd_regionmodel_none.h"
 
@@ -67,7 +67,7 @@ void CfdRegionmodelNone::init()
     {
         fixarg[0]="inRegion";
         fixarg[1]="all";
-        fixarg[2]="property/peratom";
+        fixarg[2]="property/atom";
         fixarg[3]="inRegion";
         fixarg[4]="scalar"; 
         fixarg[5]="yes";    
@@ -77,7 +77,7 @@ void CfdRegionmodelNone::init()
         modify->add_fix(9,fixarg);
     }
 
-    inRegion = static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property("inRegion","property/peratom","scalar",1,0)]);
+    inRegion = static_cast<FixPropertyAtom*>(modify->find_fix_property("inRegion","property/atom","scalar",1,0));
 
     if(!outRegion)
     {
@@ -91,7 +91,7 @@ void CfdRegionmodelNone::init()
         modify->add_fix(7,fixarg);
     }
 
-    outRegion = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("outRegion","property/global","vector",2,0)]);
+    outRegion = static_cast<FixPropertyGlobal*>(modify->find_fix_property("outRegion","property/global","vector",2,0));
 
     special_settings();
 }

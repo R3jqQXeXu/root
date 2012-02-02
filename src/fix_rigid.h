@@ -30,6 +30,11 @@ class FixRigid : public Fix {
  friend class FixGravity; 
  friend class FixWallGran; 
  friend class PairGranHookeHistory; 
+ friend class PairGranHookeHistoryAndre; 
+ friend class PairGranHookeHistoryEnergySubstep; 
+ friend class PairGranHertzIncrementalEnergySubstep; 
+ friend class PairGranHookeHistoryEnergyEDEM; 
+ friend class PairGranHookeHistoryEnergyLAMMPS; 
  friend class PairGranHooke; 
 
  public:

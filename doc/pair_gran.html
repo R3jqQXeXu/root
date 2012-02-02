@@ -6,7 +6,8 @@
 	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
 	<META NAME="CHANGEDBY" CONTENT="ckloss ">
-	<META NAME="CHANGED" CONTENT="20110426;14054200">
+	<META NAME="CHANGED" CONTENT="20111130;17325800">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
 	<META NAME="CHANGEDBY" CONTENT="ckloss ">
 	<STYLE TYPE="text/css">
 	<!--
@@ -31,16 +32,16 @@ gran/hertz/history/stiffness command
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE CLASS="western" STYLE="margin-bottom: 0.2in">pair_style style frictionflag cohesionflag </PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">pair_style style friction_damp_flag cohesionflag </PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">style = <I>gran/hooke</I> or
 	<I>gran/hooke/history</I> or <I>gran/hertz/history</I> 
 	</P>
-	<LI><P STYLE="margin-bottom: 0in">frictionflag = <BR>0 if both
-	tangential and rolling friction are not included, <BR>1 if
-	tangential friction is included, but rolling friction not, <BR>2 if
-	rolling friction is included but tangential friction not, <BR>3 if
-	both tangential friction and rolling friction is included.</P>
+	<LI><P STYLE="margin-bottom: 0in">friction_damp_flag = <BR>0 if both
+	tangential damping and rolling friction are not included, <BR>1 if
+	tangential damping is included, but rolling friction not, <BR>2 if
+	rolling friction is included but tangential damping not, <BR>3 if
+	both tangential damping and rolling friction is included.</P>
 	<LI><P>cohesionflag = 0 or 1 if macroscopic cohesion is excluded or
 	included 
 	</P>
@@ -55,7 +56,7 @@ pair_style gran/hooke 1 1</PRE><P>
 LAMMPS: The stiffness and damping coefficients k_n, k_t, gamma_n,
 gamma_t are now derived from the material properties. Also, a new
 model for macroscopic cohesion is introduced.</P>
-<P><B>Description:</B> 
+<P><B>General description:</B> 
 </P>
 <P>The <I>gran</I> styles use the following formula for the
 frictional force between two granular particles, when the distance r
@@ -63,7 +64,7 @@ between two particles of radii Ri and Rj is less than their contact
 distance d = Ri + Rj. There is no force between the particles when r
 &gt; d: 
 </P>
-<P><IMG SRC="pair_gran_html_17daf4c0.png" NAME="graphics1" ALIGN=LEFT WIDTH=576 HEIGHT=208 BORDER=0><BR CLEAR=LEFT>In
+<P><IMG SRC="pair_gran_html_60b8ced2.png" NAME="graphics5" ALIGN=LEFT WIDTH=499 HEIGHT=166 BORDER=0><BR CLEAR=LEFT>In
 the first term is the normal force between the two particles and the
 second term is the tangential force. The normal force has 2 terms, a
 contact force and a damping force. The tangential force also has 2
@@ -73,9 +74,8 @@ displacement (“tangential overlap”) between the particles for the
 duration of the time they are in contact. This term is included in
 pair styles <I>hooke/history</I> and <I>hertz/history</I>, but is not
 included in pair style <I>hooke</I>. The tangential damping and the
-rolling friction can be controlled via the frictionflag. The rolling
-friction contribution adds an additional torque contribution, equal
-to rmu*k_n*delta_n*w_r/mag(w_r)*contactradius</P>
+rolling friction can be controlled via the friction_damp_flag. 
+</P>
 <P>The quantities in the equations are as follows: 
 </P>
 <UL>
@@ -110,21 +110,22 @@ to rmu*k_n*delta_n*w_r/mag(w_r)*contactradius</P>
 	</P>
 	<LI><P>w_r = relative rotational velocity of the 2 particles</P>
 </UL>
-<P><B>Hertz/history:</B> For hertz/history, the Kn, Kt, gamma_n, and
-gamma_t coefficients are calculated as follows from the material
-properties:</P>
-<P><IMG SRC="pair_gran_html_m5aad056c.png" NAME="graphics2" ALIGN=LEFT WIDTH=296 HEIGHT=257 BORDER=0><BR CLEAR=LEFT><B>Hooke
-and hooke/history:</B> For hooke and hooke/history, the k_n, k_t,
-gamma_n, and gamma_t coefficients are calculated as follows from the
-material properties:</P>
-<P><IMG SRC="pair_gran_html_147eaf38.png" NAME="graphics4" ALIGN=LEFT WIDTH=314 HEIGHT=303 BORDER=0><BR CLEAR=LEFT><BR><BR>
+<P><B>Hertz/history:</B> 
+</P>
+<P>For hertz/history, the Kn, Kt, gamma_n, and gamma_t coefficients
+are calculated as follows from the material properties:</P>
+<P><IMG SRC="pair_gran_html_m5aad056c.png" NAME="graphics2" ALIGN=LEFT WIDTH=240 HEIGHT=208 BORDER=0><BR CLEAR=LEFT><B>Hooke
+and hooke/history:</B> 
+</P>
+<P>For hooke and hooke/history, the k_n, k_t, gamma_n, and gamma_t
+coefficients are calculated as follows from the material properties:</P>
+<P><IMG SRC="pair_gran_html_147eaf38.png" NAME="graphics4" ALIGN=LEFT WIDTH=259 HEIGHT=251 BORDER=0><BR CLEAR=LEFT><BR><BR>
 </P>
 <P>Therby, the following definitions apply to two particles in
 contact:</P>
-<P><IMG SRC="pair_gran_html_m225ba7de.png" NAME="graphics3" ALIGN=LEFT WIDTH=429 HEIGHT=354 BORDER=0><BR CLEAR=LEFT><BR><BR>
-</P>
-<P>To define those material properties, it is mandatory to use
-multiple fixes of type global/property to define them (see doc for
+<P><IMG SRC="pair_gran_html_m225ba7de.png" NAME="graphics3" ALIGN=LEFT WIDTH=355 HEIGHT=293 BORDER=0><BR CLEAR=LEFT>To
+define those material properties, it is mandatory to use multiple
+fixes of type global/property to define them (see doc for
 <A HREF="fix_property.html">fix_property</A> for details): 
 </P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
@@ -162,9 +163,23 @@ hooke styles:
 id all property/global characteristicVelocity scalar value</FONT></FONT></P>
 <P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value=value
 for characteristic impact velocity)</FONT></FONT></P>
-<P><B>Hertz/history/stiffness and hooke/history/stiffness:</B> Here,
-the k_n, k_t, gamma_n, and gamma_t coefficients are directly given by
-the user as follows from the material properties:</P>
+<P><B>Hertz/history/stiffness and hooke/history/stiffness:</B> 
+</P>
+<P>For these styles, the forces are implemented for hooke by default
+as</P>
+<P><IMG SRC="pair_gran_html_m566a9984.png" NAME="graphics6" ALIGN=LEFT WIDTH=250 HEIGHT=168 BORDER=0><BR CLEAR=LEFT>This
+is the default option for hooke where specified damping coefficient
+is multiplied by the effective mass. Optional, this multiplication
+can be omitted (absolute damping implementation), so that 
+</P>
+<P><IMG SRC="pair_gran_html_m76cd8bd9.png" NAME="graphics7" ALIGN=LEFT WIDTH=202 HEIGHT=163 BORDER=0><BR CLEAR=LEFT>This
+can be chosen by the way how gamma_n_specified and gamma_t_specified
+are defined (see below).</P>
+<P>For hertz, they are implemented as</P>
+<P><IMG SRC="pair_gran_html_m4dff7906.png" NAME="graphics1" ALIGN=LEFT WIDTH=307 HEIGHT=183 BORDER=0><BR CLEAR=LEFT>The
+k_n_specified, k_t_specified, gamma_n_specified, and
+gamma_t_specified coefficients are given by the user as follows from
+the material properties:</P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
 id all property/global kn peratomtypepair n_atomtypes value_11
 value_12 .. value_21 value_22 .. .</FONT></FONT></P>
@@ -193,10 +208,27 @@ value_12 .. value_21 value_22 .. .</FONT></FONT></P>
 for gamma_t between atom type i and j; n_atomtypes is the number of
 atom types you want to use in your simulation) </FONT></FONT>
 </P>
+<P>For the hooke model, the absolute damping implementation is used
+by specifying the damping coefficients <FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>gamman,gammat
+</FONT></FONT>as follows:</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
+id all property/global gamman_abs peratomtypepair n_atomtypes
+value_11 value_12 .. value_21 value_22 .. .</FONT></FONT></P>
+<P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value_ij=value
+for gamma_n between atom type i and j; n_atomtypes is the number of
+atom types you want to use in your simulation) </FONT></FONT>
+</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
+id all property/global gammat_abs peratomtypepair n_atomtypes
+value_11 value_12 .. value_21 value_22 .. .</FONT></FONT></P>
+<P STYLE="margin-left: 0.49in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>(value_ij=value
+for gamma_t between atom type i and j; n_atomtypes is the number of
+atom types you want to use in your simulation) </FONT></FONT>
+</P>
+<P><B>General comments, cohesion model, rolling friction model:</B> 
+</P>
 <P>IMPORTANT NOTE: You have to use atom styles beginning from 1, e.g.
-1,2,3,... Right now, LIGGGHTS does not check for if the material
-properties are defines for each material (or each pair of material
-properties). If they are not defined properly, LIGGGHTS may crash. 
+1,2,3,... 
 </P>
 <P>For all pair styles, the coefficient of friction cof is the upper
 limit of the tangential force through the Coulomb criterion Ft = cof
@@ -207,8 +239,17 @@ spring and dash-pot model until Ft/Fn = cof and is then held at Ft =
 Fn*cof until the particles lose contact. In the Hertzian case, a
 similar analogy holds, though the spring is no longer linear. 
 </P>
+<P>The <B>rolling friction contribution</B> adds an additional torque
+contribution, equal to 
+</P>
+<P>torque_rf = rmu*k_n*delta_n*w_r_shear/mag(w_r_shear)*(R*). 
+</P>
+<P>w_r_shear is the projection of w_r into the shear plane, where</P>
+<P>w_r =
+(contactradius1*w1+contactradius2*w2)/(contactradius1+contactradius2)
+</P>
 <P>If the rolling friction model is activated, the coefficient of
-rolling friction (rmu) is defined as</P>
+rolling friction (rmu) must be defined as</P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2>fix
 id all property/global coefficientRollingFriction peratomtypepair
 n_atomtypes value_11 value_12 .. value_21 value_22 .. .</FONT></FONT></P>
@@ -218,9 +259,9 @@ n_atomtypes is the number of atom types you want to use in your
 simulation) </FONT></FONT>
 </P>
 <P><FONT FACE="DejaVu Sans Mono, sans-serif"><FONT SIZE=2><BR></FONT></FONT>If
-cohesionflag = 1, the linear cohesion model is activated. If two
-particle are in contact, it adds an additional normal force tending
-to maintain the contact, which writes F = k A, where A is the
+cohesionflag = 1, the linear <B>cohesion model</B> is activated. If
+two particle are in contact, it adds an additional normal force
+tending to maintain the contact, which writes F = k A, where A is the
 particle contact area and k is the cohesion energy density in J/m³.
 If you are using the linear cohesion model, you must also define the
 cohesion energy density: 

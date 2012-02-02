@@ -26,7 +26,7 @@ See the README file in the top-level LAMMPS directory.
 #include "group.h"
 #include "error.h"
 #include "fix.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 #include "modify.h"
 #include "comm.h"
 
@@ -46,6 +46,7 @@ DumpSTL::DumpSTL(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
   //multiproc=0;             // 0 = proc 0 writes for all, 1 = one file/proc
   //if (multifile!=1) error->warning("You should use a filename like 'dump*.stl' for the 'dump stl' command if you want one file per time-step");
   if (multiproc!=0) error->warning("Your 'dump stl' command is writing one file per processor, where all the files contain the same data");
+  if (!multifile) error->all("Illegal dump stl command, you have to write one file per time-step by using the '*' in the file-name");
 
   STLList=new STLtri*[nFixMeshGran];
   for (int i=0;i<nFixMeshGran;i++) STLList[i]=(STLtri*)NULL;
@@ -167,13 +168,13 @@ void DumpSTL::write_data(int n, double *mybuf)
 
 void DumpSTL::header_item(int ndump)
 {
-  if (comm->me!=0) return;
+  if (comm->me != 0) return;
   fprintf(fp,"solid LIGGGHTS_STL_EXPORT\n");
 }
 
 void DumpSTL::footer_item()
 {
-  if (comm->me!=0) return;
+  if (comm->me != 0) return;
   fprintf(fp,"endsolid LIGGGHTS_STL_EXPORT\n");
 }
 
@@ -206,7 +207,8 @@ int DumpSTL::pack_item()
 
 void DumpSTL::write_item(int n, double *mybuf) 
 {
-  if (comm->me!=0) return;
+  if (comm->me != 0) return;
+
   int m = 0;
   for (int i = 0; i < n; i++) {
     fprintf(fp,format,
@@ -216,6 +218,7 @@ void DumpSTL::write_item(int n, double *mybuf)
     m += size_one;
   }
   //write footer
-  footer_item();
+  
+  if(n) footer_item();
 
 }

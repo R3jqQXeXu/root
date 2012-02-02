@@ -20,7 +20,7 @@ See the README file in the top-level LAMMPS directory.
 
 #ifdef FIX_CLASS
 
-FixStyle(property/peratom,FixPropertyPerAtom)
+FixStyle(property/atom,FixPropertyAtom)
 
 #else
 
@@ -31,14 +31,22 @@ FixStyle(property/peratom,FixPropertyPerAtom)
 
 namespace LAMMPS_NS {
 
-class FixPropertyPerAtom : public Fix {
+enum
+{
+   FIXPROPERTY_ATOM_SCALAR = 0,
+   FIXPROPERTY_ATOM_VECTOR = 1
+};
+
+class FixPropertyAtom : public Fix {
  public:
-  FixPropertyPerAtom(class LAMMPS *, int, char **);
-  ~FixPropertyPerAtom();
+  FixPropertyAtom(class LAMMPS *, int, char **);
+  ~FixPropertyAtom();
   int setmask();
 
   void do_forward_comm();
   void do_reverse_comm();
+
+  Fix* check_fix(const char *varname,const char *svmstyle,int len1,int len2,bool errflag);
 
   double memory_usage();
   void grow_arrays(int);
@@ -55,12 +63,12 @@ class FixPropertyPerAtom : public Fix {
   int pack_reverse_comm(int, int, double *);
   void unpack_reverse_comm(int, int *, double *);
 
-  char *variablename;   
-  int vectorStyle;      
-  int commGhost;        
-  int commGhostRev;     
+  char *variablename;   // name of the variable (used for identification by other fixes)
+  int data_style;            // 0 if a scalar is registered, 1 if vector
+  int commGhost;        // 1 if communicated to ghost particles (via pack_comm/unpack_comm), 0 if not
+  int commGhostRev;     // 1 if rev communicated from ghost particles (via pack_comm_rev/unpack_comm_rev), 0 if not
   int nvalues;
-  double *defaultvalues; 
+  double *defaultvalues; // default values at particle creation
 
  private:
 

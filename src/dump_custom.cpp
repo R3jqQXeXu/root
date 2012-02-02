@@ -36,7 +36,7 @@ using namespace LAMMPS_NS;
 enum{ID,MOL,TYPE,MASS,
        X,Y,Z,XS,YS,ZS,XSTRI,YSTRI,ZSTRI,XU,YU,ZU,XUTRI,YUTRI,ZUTRI,IX,IY,IZ,
        VX,VY,VZ,FX,FY,FZ,
-       Q,MUX,MUY,MUZ,RADIUS,OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
+       Q,DENSITY,MUX,MUY,MUZ,RADIUS,OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
        QUATW,QUATI,QUATJ,QUATK,TQX,TQY,TQZ,
        COMPUTE,FIX,VARIABLE};
 enum{LT,LE,GT,GE,EQ,NEQ};
@@ -582,6 +582,11 @@ int DumpCustom::count()
 	  error->all("Threshhold for an atom property that isn't allocated");
 	ptr = atom->q;
 	nstride = 1;
+      } else if (thresh_array[ithresh] == DENSITY) {
+	if (!atom->density_flag)
+	  error->all("Threshhold for an atom property that isn't allocated");
+	ptr = atom->density;
+	nstride = 1;
       } else if (thresh_array[ithresh] == MUX) {
 	if (!atom->mu_flag)
 	  error->all("Threshhold for an atom property that isn't allocated");
@@ -873,6 +878,11 @@ void DumpCustom::parse_fields(int narg, char **arg)
       if (!atom->q_flag)
 	error->all("Dumping an atom property that isn't allocated");
       pack_choice[i] = &DumpCustom::pack_q;
+      vtype[i] = DOUBLE;
+   } else if (strcmp(arg[iarg],"density") == 0) {
+      if (!atom->density_flag)
+	error->all("Dumping an atom property that isn't allocated");
+      pack_choice[i] = &DumpCustom::pack_density;
       vtype[i] = DOUBLE;
     } else if (strcmp(arg[iarg],"mux") == 0) {
       if (!atom->mu_flag)
@@ -1223,6 +1233,7 @@ int DumpCustom::modify_param(int narg, char **arg)
     else if (strcmp(arg[1],"fy") == 0) thresh_array[nthresh] = FY;
     else if (strcmp(arg[1],"fz") == 0) thresh_array[nthresh] = FZ;
     else if (strcmp(arg[1],"q") == 0) thresh_array[nthresh] = Q;
+    else if (strcmp(arg[1],"density") == 0) thresh_array[nthresh] = DENSITY;
     else if (strcmp(arg[1],"mux") == 0) thresh_array[nthresh] = MUX;
     else if (strcmp(arg[1],"muy") == 0) thresh_array[nthresh] = MUY;
     else if (strcmp(arg[1],"muz") == 0) thresh_array[nthresh] = MUZ;
@@ -1923,6 +1934,20 @@ void DumpCustom::pack_q(int n)
   for (int i = 0; i < nlocal; i++)
     if (choose[i]) {
       buf[n] = q[i];
+      n += size_one;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void DumpCustom::pack_density(int n)
+{
+  double *density = atom->density;
+  int nlocal = atom->nlocal;
+
+  for (int i = 0; i < nlocal; i++)
+    if (choose[i]) {
+      buf[n] = density[i];
       n += size_one;
     }
 }

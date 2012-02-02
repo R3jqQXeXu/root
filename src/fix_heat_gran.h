@@ -32,6 +32,7 @@ namespace LAMMPS_NS {
 
 class FixHeatGran : public Fix {
  public:
+
   FixHeatGran(class LAMMPS *, int, char **);
   ~FixHeatGran();
   int setmask();
@@ -40,22 +41,37 @@ class FixHeatGran : public Fix {
   void updatePtrs();
   void post_force(int);
   double compute_scalar();
+  void cpl_evaluate(class ComputePairGranLocal *);
+  void register_compute_pair_local(class ComputePairGranLocal *ptr);
+  void unregister_compute_pair_local(class ComputePairGranLocal *ptr);
+
+  int cpl_is_null()
+  {
+      if(cpl) return 0;
+      return 1;
+  }
 
  private:
 
-   template <int> void post_force_eval(int);
+  template <int> void post_force_eval(int,int);
 
-  class FixPropertyPerAtom* fix_temp;
-  class FixPropertyPerAtom* fix_heatFlux;
-  class FixPropertyPerAtom* fix_heatSource;
+  class FixPropertyAtom* fix_temp;
+  class FixPropertyAtom* fix_heatFlux;
+  class FixPropertyAtom* fix_heatSource;
   class FixPropertyGlobal* fix_conductivity;
   class FixScalarTransportEquation *fix_ste;
+
+  class ComputePairGranLocal *cpl;
 
   double T0;              
   double *Temp;           
   double *heatFlux;       
   double *heatSource;     
   double *conductivity;
+
+  // for heat transfer area correction
+  int area_correction;
+  double const* const* deltan_ratio;
 
   class PairGran *pair_gran;
   int history_flag;

@@ -47,7 +47,8 @@ See the README file in the top-level LAMMPS directory.
 #include "fix_pour_dev.h"
 #include "fix_particledistribution_discrete.h"
 #include "fix_pour_legacy.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
+#include "fix_property_atom.h"
 #include "compute_pair_gran_local.h"
 #include "pair_gran.h"
 
@@ -62,12 +63,18 @@ PairGran::PairGran(LAMMPS *lmp) : Pair(lmp)
 {
   single_enable = 0;
   no_virial_compute = 1;
+
+  mpg = new MechParamGran(lmp);
+
   history = 0;
   fix_history = NULL;
+
   cpl_enable = 1;
   cpl = NULL;
 
-  mpg = new MechParamGran(lmp);
+  energytrack_enable = 0;
+  fppaCPEn = fppaCDEn = fppaCPEt = fppaCDEVt = fppaCDEFt = fppaCTFW = fppaDEH = NULL;
+  CPEn = CDEn = CPEt = CDEVt = CDEFt = CTFW = DEH = NULL;
 
   laststep = -1;
 }
@@ -84,10 +91,32 @@ PairGran::~PairGran()
   }
   delete mpg;
 
+  //unregister energy terms as property/atom
+  if (fppaCPEn) modify->delete_fix("CPEn");
+  if (fppaCDEn) modify->delete_fix("CDEn");
+  if (fppaCPEt) modify->delete_fix("CPEt");
+  if (fppaCDEVt) modify->delete_fix("CDEVt");
+  if (fppaCDEFt) modify->delete_fix("CDEFt");
+  if (fppaCTFW) modify->delete_fix("CTFW");
+  if (fppaDEH) modify->delete_fix("DEH");
+
   delete [] onerad_dynamic;
   delete [] onerad_frozen;
   delete [] maxrad_dynamic;
   delete [] maxrad_frozen;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairGran::updatePtrs()
+{
+	if(fppaCPEn) CPEn = fppaCPEn->vector_atom;
+	if(fppaCDEn) CDEn = fppaCDEn->vector_atom;
+	if(fppaCPEt) CPEt = fppaCPEt->vector_atom;
+	if(fppaCDEVt) CDEVt = fppaCDEVt->vector_atom;
+	if(fppaCDEFt) CDEFt = fppaCDEFt->vector_atom;
+	if(fppaCTFW) CTFW = fppaCTFW->vector_atom;
+	if(fppaDEH) DEH = fppaDEH->vector_atom;
 }
 
 /* ----------------------------------------------------------------------
@@ -153,10 +182,12 @@ void PairGran::init_style()
   if (comm->ghost_velocity == 0)
     error->all("Pair granular requires ghost atoms store velocity");
 
+  // check if a fix rigid is registered - important for damp
+  
   fr = NULL;
   for(int ifix=0;ifix<modify->nfix;ifix++)
   {
-      if(strncmp(modify->fix[ifix]->style,"rigid",5)==0)
+      if(strcmp(modify->fix[ifix]->style,"rigid") == 0)
       {
           fr = static_cast<FixRigid*>(modify->fix[ifix]);
           nRigid++;
@@ -174,27 +205,129 @@ void PairGran::init_style()
   if (history && force->newton_pair == 1)
     error->all("Pair granular with shear history requires newton pair off");
 
+  // init contact history
   if(history)
   {
-    
-    char **fixarg = new char*[4+2*dnum];
-    fixarg[3] = new char[3];
-    history_args(&fixarg[4]);
-
-    if (fix_history == NULL)
+    if (!fix_history)
     {
+        
+        char **fixarg = new char*[4+2*dnum];
+        fixarg[3] = new char[3];
+        history_args(&fixarg[4]);
+
         fixarg[0] = (char *) "contacthistory";
         fixarg[1] = (char *) "all";
         fixarg[2] = (char *) "contacthistory";
         sprintf(fixarg[3],"%d",dnum);
-
         modify->add_fix(4+2*dnum,fixarg);
 
-        fix_history = (FixContactHistory *) modify->fix[modify->nfix-1];
-        fix_history->pair = this;
+        if(modify->n_fixes_style("contacthistory") != 1) error->all("Pair granular with shear history requires exactly one fix of style contacthistory");
+        fix_history = static_cast<FixContactHistory*>(modify->find_fix_style("contacthistory",0));
+
+        delete [] fixarg[3];
+        delete [] fixarg;
     }
-    delete [] fixarg[3];
-    delete [] fixarg;
+  }
+
+  // register per-particle properties for energy tracking
+  if(energytrack_enable)
+  {
+      if(comm->nprocs > 1) error->all("check communication settings");
+      char **fixarg = new char*[9];
+      if (fppaCPEn == NULL) {
+        fixarg[0]=(char *) "CPEn";
+        fixarg[1]=(char *) "all";
+        fixarg[2]=(char *) "property/atom";
+        fixarg[3]=(char *) "CPEn";
+        fixarg[4]=(char *) "scalar";
+        fixarg[5]=(char *) "yes";
+        fixarg[6]=(char *) "no";
+        fixarg[7]=(char *) "no";
+        fixarg[8]=(char *) "0.0";
+        modify->add_fix(9,fixarg);
+        fppaCPEn=static_cast<FixPropertyAtom*>(modify->find_fix_property("CPEn","property/atom","scalar",0,0));
+      }
+      if (fppaCDEn == NULL) {
+        fixarg[0]=(char *) "CDEn";
+        fixarg[1]=(char *) "all";
+        fixarg[2]=(char *) "property/atom";
+        fixarg[3]=(char *) "CDEn";
+        fixarg[4]=(char *) "scalar";
+        fixarg[5]=(char *) "yes";
+        fixarg[6]=(char *) "no";
+        fixarg[7]=(char *) "no";
+        fixarg[8]=(char *) "0.0";
+        modify->add_fix(9,fixarg);
+        fppaCDEn=static_cast<FixPropertyAtom*>(modify->find_fix_property("CDEn","property/atom","scalar",0,0));
+      }
+      if (fppaCPEt == NULL) {
+          fixarg[0]=(char *) "CPEt";
+          fixarg[1]=(char *) "all";
+          fixarg[2]=(char *) "property/atom";
+          fixarg[3]=(char *) "CPEt";
+          fixarg[4]=(char *) "scalar";
+          fixarg[5]=(char *) "yes";
+          fixarg[6]=(char *) "no";
+          fixarg[7]=(char *) "no";
+          fixarg[8]=(char *) "0.0";
+          modify->add_fix(9,fixarg);
+          fppaCPEt=static_cast<FixPropertyAtom*>(modify->find_fix_property("CPEt","property/atom","scalar",0,0));
+       }
+       if (fppaCDEVt == NULL) {
+         fixarg[0]=(char *) "CDEVt";
+         fixarg[1]=(char *) "all";
+         fixarg[2]=(char *) "property/atom";
+         fixarg[3]=(char *) "CDEVt";
+         fixarg[4]=(char *) "scalar";
+         fixarg[5]=(char *) "yes";
+         fixarg[6]=(char *) "no";
+         fixarg[7]=(char *) "no";
+         fixarg[8]=(char *) "0.0";
+         modify->add_fix(9,fixarg);
+         fppaCDEVt=static_cast<FixPropertyAtom*>(modify->find_fix_property("CDEVt","property/atom","scalar",0,0));
+       }
+       if (fppaCDEFt == NULL) {
+         fixarg[0]=(char *) "CDEFt";
+         fixarg[1]=(char *) "all";
+         fixarg[2]=(char *) "property/atom";
+         fixarg[3]=(char *) "CDEFt";
+         fixarg[4]=(char *) "scalar";
+         fixarg[5]=(char *) "yes";
+         fixarg[6]=(char *) "no";
+         fixarg[7]=(char *) "no";
+         fixarg[8]=(char *) "0.0";
+         modify->add_fix(9,fixarg);
+         fppaCDEFt=static_cast<FixPropertyAtom*>(modify->find_fix_property("CDEFt","property/atom","scalar",0,0));
+       }
+       if (fppaCTFW == NULL) {
+         fixarg[0]=(char *) "CTFW";
+         fixarg[1]=(char *) "all";
+         fixarg[2]=(char *) "property/atom";
+         fixarg[3]=(char *) "CTFW";
+         fixarg[4]=(char *) "scalar";
+         fixarg[5]=(char *) "yes";
+         fixarg[6]=(char *) "no";
+         fixarg[7]=(char *) "no";
+         fixarg[8]=(char *) "0.0";
+         modify->add_fix(9,fixarg);
+         fppaCTFW=static_cast<FixPropertyAtom*>(modify->find_fix_property("CTFW","property/atom","scalar",0,0));
+      }
+      if (fppaDEH == NULL) {
+       fixarg[0]=(char *) "DEH";
+       fixarg[1]=(char *) "all";
+       fixarg[2]=(char *) "property/atom";
+       fixarg[3]=(char *) "DEH";
+       fixarg[4]=(char *) "scalar";
+       fixarg[5]=(char *) "yes";
+       fixarg[6]=(char *) "no";
+       fixarg[7]=(char *) "no";
+       fixarg[8]=(char *) "0.0";
+       modify->add_fix(9,fixarg);
+       fppaDEH=static_cast<FixPropertyAtom*>(modify->find_fix_property("DEH","property/atom","scalar",0,0));
+     }
+    delete []fixarg;
+
+    if(force->newton_pair == 1) error->all("Have to implement rev comm of energy terms");
   }
 
   // need a half neigh list and optionally a granular history neigh list
@@ -204,7 +337,7 @@ void PairGran::init_style()
   neighbor->requests[irequest]->gran = 1;
   if (history) {
     irequest = neighbor->request(this);
-    neighbor->requests[irequest]->id = 1;
+    neighbor->requests[irequest]->id = 1; 
     neighbor->requests[irequest]->half = 0;
     neighbor->requests[irequest]->granhistory = 1;
     neighbor->requests[irequest]->dnum = dnum;

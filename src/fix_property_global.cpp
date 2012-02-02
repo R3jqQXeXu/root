@@ -31,7 +31,7 @@ See the README file in the top-level LAMMPS directory.
 #include "error.h"
 #include "group.h"
 #include "neighbor.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 
 using namespace LAMMPS_NS;
 
@@ -52,38 +52,42 @@ FixPropertyGlobal::FixPropertyGlobal(LAMMPS *lmp, int narg, char **arg) :
     variablename = new char[n];
     strcpy(variablename,arg[3]);
 
-    if (strcmp(arg[4],"scalar") == 0) svmStyle = FIXPROPERTYTYPE_GLOBAL_SCALAR;
-    else if (strcmp(arg[4],"vector") == 0) svmStyle = FIXPROPERTYTYPE_GLOBAL_VECTOR;
-    else if (strcmp(arg[4],"peratomtype") == 0) svmStyle = FIXPROPERTYTYPE_GLOBAL_VECTOR;
-    else if (strcmp(arg[4],"matrix") == 0) svmStyle = FIXPROPERTYTYPE_GLOBAL_MATRIX;
-    else if (strcmp(arg[4],"peratomtypepair") == 0) svmStyle = FIXPROPERTYTYPE_GLOBAL_MATRIX;
+    if (strcmp(arg[4],"scalar") == 0) data_style = FIXPROPERTY_GLOBAL_SCALAR;
+    else if (strcmp(arg[4],"vector") == 0) data_style = FIXPROPERTY_GLOBAL_VECTOR;
+    else if (strcmp(arg[4],"peratomtype") == 0 || strcmp(arg[4],"atomtype") == 0) data_style = FIXPROPERTY_GLOBAL_VECTOR;
+    else if (strcmp(arg[4],"matrix") == 0) data_style = FIXPROPERTY_GLOBAL_MATRIX;
+    else if (strcmp(arg[4],"peratomtypepair") == 0 || strcmp(arg[4],"atomtypepair") == 0) data_style = FIXPROPERTY_GLOBAL_MATRIX;
     else error->all("Unknown style for fix property/global. Valid styles are scalar or vector/peratomtype or matrix/peratomtypepair");
 
-    int darg=0;
-    if (svmStyle==FIXPROPERTYTYPE_GLOBAL_MATRIX) darg=1;
+    int darg = 0;
+    if (data_style == FIXPROPERTY_GLOBAL_MATRIX) darg = 1;
 
     //assign values
     nvalues = narg - 5 - darg;
     
-    values = new double[nvalues];
-    values_recomputed = new double[nvalues];
-    for (int j=0;j<nvalues;j++) values[j] = myAtof(arg[5+darg+j]);
+    values = (double*) memory->smalloc(nvalues*sizeof(double),"values");
+    values_recomputed = (double*) memory->smalloc(nvalues*sizeof(double),"values");
 
-    if (svmStyle==FIXPROPERTYTYPE_GLOBAL_SCALAR) scalar_flag=1;
-    else if (svmStyle==FIXPROPERTYTYPE_GLOBAL_VECTOR) {
-        vector_flag=1;
-        size_vector=nvalues;
+    if(narg < 5+darg+nvalues) error->all("Illegal fix property/global command, not enough arguments");
+
+    for (int j = 0; j < nvalues; j++)
+        values[j] = myAtof(arg[5+darg+j]);
+
+    if (data_style == FIXPROPERTY_GLOBAL_SCALAR)
+        scalar_flag = 1;
+    else if (data_style==FIXPROPERTY_GLOBAL_VECTOR) {
+        vector_flag = 1;
+        size_vector = nvalues;
     }
-    else if (svmStyle==FIXPROPERTYTYPE_GLOBAL_MATRIX) {
-        array_flag=1;
-        size_array_cols=myAtoi(arg[5]);
+    else if (data_style == FIXPROPERTY_GLOBAL_MATRIX) {
+        array_flag = 1;
+        size_array_cols = myAtoi(arg[5]);
         if (fmod(static_cast<double>(nvalues),size_array_cols) != 0.)
           error->all("Error in fix property/global: The number of default values must thus be a multiple of the nCols.");
-        size_array_rows=static_cast<int>(static_cast<double>(nvalues)/size_array_cols);
+        size_array_rows = static_cast<int>(static_cast<double>(nvalues)/size_array_cols);
     }
 
     extvector=0; 
-    time_depend = 1; 
 
     //check if there is already a fix that tries to register a property with the same name
     for (int ifix = 0; ifix < modify->nfix; ifix++)
@@ -92,7 +96,7 @@ FixPropertyGlobal::FixPropertyGlobal(LAMMPS *lmp, int narg, char **arg) :
 
     array = NULL;
     array_recomputed = NULL;
-    if(svmStyle == FIXPROPERTYTYPE_GLOBAL_MATRIX)
+    if(data_style == FIXPROPERTY_GLOBAL_MATRIX)
     {
         array = (double**)memory->smalloc(size_array_rows*sizeof(double**),"FixPropGlob:array");
         array_recomputed = (double**)memory->smalloc(size_array_rows*sizeof(double**),"FixPropGlob:array_recomputed");
@@ -107,11 +111,57 @@ FixPropertyGlobal::~FixPropertyGlobal()
 {
   // delete locally stored arrays
   delete[] variablename;
-  delete[] values;
-  delete[] values_recomputed;
 
-  if(array)            delete[] array;
-  if(array_recomputed) delete[] array_recomputed;
+  memory->sfree(values);
+  memory->sfree(values_recomputed);
+
+  if(array)            memory->sfree(array);
+  if(array_recomputed) memory->sfree(array_recomputed);
+}
+
+/* ---------------------------------------------------------------------- */
+
+Fix* FixPropertyGlobal::check_fix(const char *varname,const char *svmstyle,int len1,int len2,bool errflag)
+{
+    char errmsg[200];
+
+    if(strcmp(varname,variablename) == 0)
+    {
+        if(strcmp(svmstyle,"scalar") == 0) len1 = 1;
+
+        // check variable style
+        if(
+            (strcmp(svmstyle,"scalar") == 0 && data_style != FIXPROPERTY_GLOBAL_SCALAR) ||
+            ((strcmp(svmstyle,"vector") == 0 || strcmp(svmstyle,"peratomtype") == 0) && data_style != FIXPROPERTY_GLOBAL_VECTOR) ||
+            ((strcmp(svmstyle,"matrix") == 0 || strcmp(svmstyle,"peratomtypepair") == 0) && data_style != FIXPROPERTY_GLOBAL_MATRIX)
+        )
+        {
+            if(errflag)
+            {
+                sprintf(errmsg,"%s",svmstyle);
+                strcat(errmsg," style required for fix property/global variable ");
+                strcat(errmsg,varname);
+                error->all(errmsg);
+            }
+            else return NULL;
+        }
+
+        // check length
+        if((nvalues < len1) && ((data_style != FIXPROPERTY_GLOBAL_MATRIX) || (data_style == FIXPROPERTY_GLOBAL_MATRIX) && (size_array_cols < len2)))
+        {
+            if(errflag)
+            {
+                sprintf(errmsg,"Length not sufficient for variable ");
+                strcat(errmsg,varname);
+                error->all(errmsg);
+            }
+            else return NULL;
+        }
+
+        // success
+        return static_cast<Fix*>(this);
+    }
+    return NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -121,20 +171,20 @@ void FixPropertyGlobal::init()
     char errmsg[200];
     sprintf(errmsg,"Fix property/global: Length not sufficient for variable ");
     strcat(errmsg,variablename);
-    if(strcmp(style,"property/peratomtype") == 0 && nvalues < atom->ntypes) error->all(errmsg);
-    if(strcmp(style,"property/peratomtypepair") == 0 && nvalues < atom->ntypes*atom->ntypes) error->all(errmsg);
+    if((strcmp(style,"property/atomtype") == 0 || strcmp(style,"property/peratomtype") == 0) && nvalues < atom->ntypes) error->all(errmsg);
+    if((strcmp(style,"property/atomtypepair") == 0 || strcmp(style,"property/peratomtypepair") == 0) && nvalues < atom->ntypes*atom->ntypes) error->all(errmsg);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixPropertyGlobal::grow(int len1, int len2)
 {
-    if(svmStyle == FIXPROPERTYTYPE_GLOBAL_SCALAR) error->all("Can not grow global property of type scalar");
-    else if(svmStyle == FIXPROPERTYTYPE_GLOBAL_VECTOR && len1 > nvalues)
+    if(data_style == FIXPROPERTY_GLOBAL_SCALAR) error->all("Can not grow global property of type scalar");
+    else if(data_style == FIXPROPERTY_GLOBAL_VECTOR && len1 > nvalues)
     {
         values = (double*)memory->srealloc(values,len1*sizeof(double),"FixPropertyGlobal:values");
     }
-    else if(svmStyle == FIXPROPERTYTYPE_GLOBAL_MATRIX && len1*len2 > nvalues)
+    else if(data_style == FIXPROPERTY_GLOBAL_MATRIX && len1*len2 > nvalues)
     {
         values = (double*) memory->srealloc(values,len1*len2*sizeof(double),"FixPropertyGlobal:values");
         size_array_rows = len1;
@@ -143,14 +193,6 @@ void FixPropertyGlobal::grow(int len1, int len2)
         array = (double**)memory->srealloc(array,size_array_rows*sizeof(double**),"FixPropGlob:array");
         for(int i = 0; i < size_array_rows; i++) array[i] = &values[i*size_array_cols];
     }
-}
-
-/* ---------------------------------------------------------------------- */
-
-bool FixPropertyGlobal::checkCorrectness(int desiredStyle, char* desiredVar,int desiredLen,int desiredRows)
-{
-    return ((desiredStyle==svmStyle)&&(!strcmp(desiredVar,variablename))&&(nvalues>=desiredLen)&&(svmStyle!=2||(svmStyle==2 && desiredRows>=size_array_rows)));
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -232,7 +274,7 @@ double FixPropertyGlobal::memory_usage()
 void FixPropertyGlobal::new_array(int l1,int l2)
 {
     
-    if (svmStyle == FIXPROPERTYTYPE_GLOBAL_MATRIX) error->all("Fix property/global: Can not allocate extra array for matrix style");
+    if (data_style == FIXPROPERTY_GLOBAL_MATRIX) error->all("Fix property/global: Can not allocate extra array for matrix style");
     array_flag = 1;
     size_array_rows = l1;
     size_array_cols = l2;

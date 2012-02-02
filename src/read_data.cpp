@@ -497,6 +497,8 @@ void ReadData::atoms()
 
   double nread = 0.0;
   double natoms = atom->natoms;
+  int nlocal_old = atom->nlocal; 
+  int tag_max_old = atom->tag_max();
   if (add_to_existing ) natoms = static_cast<double>(natoms_add); 
 
   while (nread < natoms) {
@@ -521,13 +523,13 @@ void ReadData::atoms()
 
   // check that all atoms were assigned correctly
 
-  double tmp = atom->nlocal;
-  MPI_Allreduce(&tmp,&natoms,1,MPI_DOUBLE,MPI_SUM,world);
-
   if (me == 0) {
     if (screen) fprintf(screen,"  %.15g atoms\n",natoms);
     if (logfile) fprintf(logfile,"  %.15g atoms\n",natoms);
   }
+
+  double tmp = atom->nlocal;
+  MPI_Allreduce(&tmp,&natoms,1,MPI_DOUBLE,MPI_SUM,world);
 
   if (natoms != atom->natoms) error->all("Did not assign all atoms correctly");
 
@@ -563,8 +565,20 @@ void ReadData::atoms()
   }
   else  
   {
-      if (atom->tag_enable) atom->tag_extend();
-      atom->nghost = 0;
+      // check if tag may be already used
+      // if yes throw error since this would mess up atom map
+
+      if(atom->tag_enable)
+      {
+          int nlocal = atom->nlocal;
+          fprintf(screen,"nlocal_old %d, nlocal %d\n",nlocal_old,nlocal);
+          for(int i = nlocal_old; i < nlocal; i++)
+            if(atom->tag[i] <= tag_max_old)
+            {
+                fprintf(screen,"for i= %d\n",i);
+                error->one("Atom from data file uses atom tag that is already used by atom in the simulation");
+            }
+      }
   }
 
   // create global mapping

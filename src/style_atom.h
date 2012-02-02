@@ -6,3 +6,4 @@
 #include "atom_vec_granular.h"
 #include "atom_vec_hybrid.h"
 #include "atom_vec_molecular.h"
+#include "atom_vec_sph.h"

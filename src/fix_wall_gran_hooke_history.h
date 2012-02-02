@@ -41,12 +41,13 @@ class FixWallGranHookeHistory : public FixWallGran {
   ~FixWallGranHookeHistory();
 
  protected:
-
+  virtual void post_create();
   virtual void init_substyle();
   void addHeatFlux(int, double, double area_ratio);
   virtual void compute_force(int ip, double deltan, double rsq,double meff_wall, double dx, double dy, double dz,double *vwall,double *c_history,double area_ratio);
   virtual void addCohesionForce(int &, double &, double &,double area_ratio);
   virtual void deriveContactModelParams(int ip, double deltan,double meff_wall, double &kn, double &kt, double &gamman, double &gammat, double &xmu,double &rmu);
+  virtual void pre_reset_history(int,double*) {}
 
   int dampflag,cohesionflag,rollingflag;
   double **Yeff,**Geff,**betaeff,**veff,**cohEnergyDens,**coeffRestLog,**coeffFrict,charVel,**coeffRollFrict;

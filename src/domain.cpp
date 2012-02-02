@@ -1124,3 +1124,76 @@ void Domain::bbox(double *lo, double *hi, double *bboxlo, double *bboxhi)
   bboxlo[1] = MIN(bboxlo[1],x[1]); bboxhi[1] = MAX(bboxhi[1],x[1]);
   bboxlo[2] = MIN(bboxlo[2],x[2]); bboxhi[2] = MAX(bboxhi[2],x[2]);
 }
+
+/* ----------------------------------------------------------------------
+   check if coordinate in domain, subdomain or extended subdomain
+------------------------------------------------------------------------- */
+
+int Domain::is_in_domain(double* pos) 
+{
+    if
+    (
+        pos[0] >= boxlo[0] && pos[0] < boxhi[0] &&
+        pos[1] >= boxlo[1] && pos[1] < boxhi[1] &&
+        pos[2] >= boxlo[2] && pos[2] < boxhi[2]
+    )   return true;
+    return false;
+}
+
+int Domain::is_in_subdomain(double* pos) 
+{
+    if (pos[0] >= sublo[0] && pos[0] < subhi[0] &&
+        pos[1] >= sublo[1] && pos[1] < subhi[1] &&
+        pos[2] >= sublo[2] && pos[2] < subhi[2])
+        return true;
+    return false;
+}
+
+int Domain::is_in_extended_subdomain(double* pos) 
+{
+    // called on insertion
+    // yields true if particle would be in subdomain after box extension
+    
+    if (pos[0] >= sublo[0] && pos[0] < subhi[0] &&
+        pos[1] >= sublo[1] && pos[1] < subhi[1] &&
+        pos[2] >= sublo[2] && pos[2] < subhi[2])
+        return true;
+    else if (dimension == 2)
+        error->all("Domain::is_in_extended_subdomain() not implemented for 2d");
+    else 
+    {
+        bool flag = true;
+        for(int idim = 0; idim < 3; idim++)
+        {
+            
+            if (comm->procgrid[idim] == 1) {}
+            else if(comm->myloc[idim] == comm->procgrid[idim]-1)
+                flag = flag && (pos[idim] >= subhi[idim]);
+            else if(comm->myloc[idim] == 0)
+                flag = flag && (pos[idim] < sublo[idim]);
+            
+            else
+                flag = flag && (pos[idim] >= sublo[idim] && pos[idim] < subhi[idim]);
+        }
+        return flag;
+    }
+    return false;
+}
+
+int Domain::is_periodic_ghost(int i) 
+{
+    int idim;
+    int nlocal = atom->nlocal;
+    double *x = atom->x[i];
+
+    if(i < nlocal) return 0;
+
+    else
+    {
+        for(idim = 0; idim < 3; idim++)
+            if ((x[idim] < boxlo[idim] || x[idim] > boxhi[idim]) && periodicity[idim])
+                return 1;
+    }
+    return 0;
+}
+

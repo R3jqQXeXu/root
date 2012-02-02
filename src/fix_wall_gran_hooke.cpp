@@ -36,11 +36,9 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "error.h"
 #include "fix_rigid.h"
+#include "compute_pair_gran_local.h"
 
 using namespace LAMMPS_NS;
-
-enum{MESHGRAN,XPLANE,YPLANE,ZPLANE,ZCYLINDER};
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY};
 
 #define BIG 1.0e20
 
@@ -137,13 +135,17 @@ void FixWallGranHooke::compute_force(int ip, double deltan, double rsq,double me
   fy = dy*ccel + fs2;
   fz = dz*ccel + fs3;
 
-  f[0] += fx*area_ratio;
-  f[1] += fy*area_ratio;
-  f[2] += fz*area_ratio;
+  if(addflag)
+  {
+      f[0] += fx*area_ratio;
+      f[1] += fy*area_ratio;
+      f[2] += fz*area_ratio;
+  }
 
   tor1 = rinv * (dy*fs3 - dz*fs2);
   tor2 = rinv * (dz*fs1 - dx*fs3);
   tor3 = rinv * (dx*fs2 - dy*fs1);
+
   if(rollingflag)
   {
 	    wrmag = sqrt(wr1*wr1+wr2*wr2+wr3*wr3);
@@ -155,8 +157,12 @@ void FixWallGranHooke::compute_force(int ip, double deltan, double rsq,double me
 	    }
   }
 
-  torque[0] -= cr*tor1*area_ratio;
-  torque[1] -= cr*tor2*area_ratio;
-  torque[2] -= cr*tor3*area_ratio;
+  if(addflag)
+  {
+      torque[0] -= cr*tor1*area_ratio;
+      torque[1] -= cr*tor2*area_ratio;
+      torque[2] -= cr*tor3*area_ratio;
+  }
+  else if(cwl) cwl->add_wall_2(ip,fx,fy,fz,tor1*area_ratio,tor2*area_ratio,tor3*area_ratio,c_history,rsq);
 }
 

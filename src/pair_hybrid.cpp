@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -74,7 +74,7 @@ void PairHybrid::compute(int eflag, int vflag)
   // if no_virial_compute is set and global component of incoming vflag = 2
   // reset vflag as if global component were 1
   // necessary since one or more sub-styles cannot compute virial as F dot r
-  
+
   if (no_virial_compute && vflag % 4 == 2) vflag = 1 + vflag/4 * 4;
 
   if (eflag || vflag) ev_setup(eflag,vflag);
@@ -142,7 +142,7 @@ void PairHybrid::compute_outer(int eflag, int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   allocate all arrays 
+   allocate all arrays
 ------------------------------------------------------------------------- */
 
 void PairHybrid::allocate()
@@ -223,11 +223,11 @@ void PairHybrid::settings(int narg, char **arg)
   i = 0;
   while (i < narg) {
     for (m = 0; m < nstyles; m++)
-      if (strcmp(arg[i],keywords[m]) == 0) 
+      if (strcmp(arg[i],keywords[m]) == 0)
 	error->all("Pair style hybrid cannot use same pair style twice");
-    if (strcmp(arg[i],"hybrid") == 0) 
+    if (strcmp(arg[i],"hybrid") == 0)
       error->all("Pair style hybrid cannot have hybrid as an argument");
-    if (strcmp(arg[i],"none") == 0) 
+    if (strcmp(arg[i],"none") == 0)
       error->all("Pair style hybrid cannot have none as an argument");
     styles[nstyles] = force->new_pair(arg[i]);
     keywords[nstyles] = new char[strlen(arg[i])+1];
@@ -237,7 +237,19 @@ void PairHybrid::settings(int narg, char **arg)
     if (strcmp(arg[i],"lj/coul") == 0) i += 2;
     if (strstr(arg[i],"gpu")) i++;
     i++;
-    while (i < narg && !isalpha(arg[i][0])) i++;
+    
+    int increment = 1;
+    while (i < narg && increment == 1)
+    {
+      if(0) return;
+      #define PAIR_CLASS
+      #define PairStyle(key,Class) \
+      else if (strcmp(arg[i],#key) == 0) increment = 0;
+      #include "style_pair.h"
+      #undef PAIR_CLASS
+      if(increment) i++;
+    }
+
     styles[nstyles]->settings(i-istyle-1,&arg[istyle+1]);
     nstyles++;
   }
@@ -389,7 +401,7 @@ void PairHybrid::init_style()
     for (itype = 1; itype <= ntypes; itype++)
       for (jtype = itype; jtype <= ntypes; jtype++) {
 	for (m = 0; m < nmap[itype][jtype]; m++)
-	  if (map[itype][jtype][m] == istyle) 
+	  if (map[itype][jtype][m] == istyle)
 	    ijskip[itype][jtype] = ijskip[jtype][itype] = 0;
 	if (nmap[itype][jtype] == 0 &&
 	    nmap[itype][itype] == 1 && map[itype][itype][0] == istyle &&
@@ -458,7 +470,7 @@ double PairHybrid::init_one(int i, int j)
   for (int k = 0; k < nmap[i][j]; k++) {
     map[j][i][k] = map[i][j][k];
     double cut = styles[map[i][j][k]]->init_one(i,j);
-    styles[map[i][j][k]]->cutsq[i][j] = 
+    styles[map[i][j][k]]->cutsq[i][j] =
       styles[map[i][j][k]]->cutsq[j][i] = cut*cut;
     if (tail_flag) {
       etail_ij += styles[map[i][j][k]]->etail_ij;
@@ -553,7 +565,7 @@ void PairHybrid::read_restart(FILE *fp)
 
   styles = new Pair*[nstyles];
   keywords = new char*[nstyles];
-  
+
   // each sub-style is created via new_pair()
   // each reads its settings, but no coeff info
 

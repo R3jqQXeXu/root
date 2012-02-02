@@ -39,6 +39,8 @@ class FixGravity : public Fix {
   void post_force(int);
   void post_force_respa(int, int, int);
 
+  void get_gravity(double*); 
+
  private:
   int style;
   double magnitude,dt;

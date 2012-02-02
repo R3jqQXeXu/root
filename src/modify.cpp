@@ -186,9 +186,9 @@ void Modify::init()
 
   comm->maxforward_fix = comm->maxreverse_fix = 0;
   for (i = 0; i < nfix; i++) {
-      //fprintf(screen,"init fix id %s on proc %d (nfix=%d)\n",fix[i]->id,comm->me,nfix);
+      
       fix[i]->init();
-      //fprintf(screen,"finished init fix id %s on proc %d\n",fix[i]->id,comm->me);
+      
   }
 
   // set global flag if any fix has its restart_pbc flag set
@@ -209,6 +209,7 @@ void Modify::init()
   //   b/c some may be holdovers from previous run, like for ave fixes
 
   for (i = 0; i < ncompute; i++) {
+    
     compute[i]->init();
     compute[i]->invoked_scalar = -1;
     compute[i]->invoked_vector = -1;
@@ -592,7 +593,6 @@ void Modify::add_fix(int narg, char **arg)
     
     fix[ifix]->pre_delete();
     delete fix[ifix];
-    atom->update_callback(ifix);
     fix[ifix] = NULL;
   } else {
     newflag = 1;
@@ -712,152 +712,6 @@ int Modify::find_fix(const char *id)
     if (strcmp(id,fix[ifix]->id) == 0) break;
   if (ifix == nfix) return -1;
   return ifix;
-}
-
-/* ----------------------------------------------------------------------
-   
-   add a fix property
-------------------------------------------------------------------------- */
-FixPropertyGlobal* Modify::add_fix_property_global(int narg,char **arg)
-{
-    if(narg < 5) error->all("Not enough arguments to add a fix property");
-    add_fix(narg,arg);
-    return static_cast<FixPropertyGlobal*>(fix[find_fix_property(arg[3],"property/global",arg[4],0,0)]);
-}
-
-FixPropertyPerAtom* Modify::add_fix_property_peratom(int narg,char **arg)
-{
-    if(narg < 5) error->all("Not enough arguments to add a fix property");
-    add_fix(narg,arg);
-    return static_cast<FixPropertyPerAtom*>(fix[find_fix_property(arg[3],"property/peratom",arg[4],0,0)]);
-}
-
-/* ----------------------------------------------------------------------
-   
-   find a fix scalar transport equation
-------------------------------------------------------------------------- */
-
-FixScalarTransportEquation* Modify::find_fix_scalar_transport_equation(const char *equation_id)
-{
-    for(int ifix = 0; ifix < nfix; ifix++)
-      if(strcmp(fix[ifix]->style,"transportequation/scalar")==0)
-      {
-          FixScalarTransportEquation *fix_ste = static_cast<FixScalarTransportEquation*>(fix[ifix]);
-          if(fix_ste->match_equation_id(equation_id)) return fix_ste;
-      }
-    return NULL;
-}
-
-/* ----------------------------------------------------------------------
-   
-   find a property registered by a fix property/global or fix property/peratom
-   check if it is of desired style
-   return the index in the fix array
-------------------------------------------------------------------------- */
-
-int Modify::find_fix_property(const char *varname,const char *style,const char *svmstyle,int len1,int len2)
-{
-    return find_fix_property(varname,style,svmstyle,len1,len2,true);
-}
-
-int Modify::find_fix_property(const char *varname,const char *style,const char *svmstyle,int len1,int len2,bool errflag)
-{
-  int ifix,svm;
-  int ret;
-  char errmsg[200];
-
-  if( (strcmp(style,"property/global")!=0) && (strcmp(style,"property/peratom")!=0) ) error->all("Valid styles for find_fix_property are 'property/global' and 'property/peratom'");
-
-  if((len1<0)||(len2<0))error->all("Lengths for find_fix_property not valid");
-
-  if((strcmp(svmstyle,"scalar")!=0) && (strcmp(svmstyle,"vector")!=0) && (strcmp(svmstyle,"peratomtype")!=0) && (strcmp(svmstyle,"peratomtypepair")!=0) && (strcmp(svmstyle,"matrix")!=0))
-     error->all("Svmstyle for find_fix_property not valid");
-
-  if((strcmp(style,"property/peratom")==0) && ((strcmp(svmstyle,"peratomtype")==0) || (strcmp(svmstyle,"peratomtypepair")==0) || (strcmp(svmstyle,"matrix")==0)) )
-     error->all("Svmstyle for find_fix_property not valid - peratom can not take peratomtype, peratomtypepair or matrix");
-
-  if(strcmp(svmstyle,"scalar")==0) svm=0;
-  else if ((strcmp(svmstyle,"matrix")==0)||(strcmp(svmstyle,"peratomtypepair")==0)) svm=2;
-  else svm=1; //vector or peratomtype
-
-  for(ifix = 0; ifix < nfix; ifix++)
-  {
-      
-      if(strcmp(style,fix[ifix]->style)==0)
-      {
-          if(strcmp(fix[ifix]->style,"property/peratom")==0)
-          {
-              FixPropertyPerAtom *fppa;
-              fppa=static_cast<FixPropertyPerAtom*>(fix[ifix]);
-              if(strcmp(varname,fppa->variablename)==0)
-              {
-                  if(svm!=fppa->vectorStyle)
-                  {
-                      if(errflag)
-                      {
-                          sprintf(errmsg,svmstyle);
-                          strcat(errmsg," style required for variable ");
-                          strcat(errmsg,varname);
-                          error->all(errmsg);
-                      }
-                      else return -1;
-                  }
-                  else  //success
-                  {
-                      return ifix;
-                  }
-              }
-          }
-          else //  property/global
-          {
-              FixPropertyGlobal *fppg;
-              fppg=static_cast<FixPropertyGlobal*>(fix[ifix]);
-              if(strcmp(varname,fppg->variablename)==0)
-              {
-                  if(svm!=fppg->svmStyle)
-                  {
-                      if(errflag)
-                      {
-                         sprintf(errmsg,svmstyle);
-                         strcat(errmsg," style required for variable ");
-                         strcat(errmsg,varname);
-                         error->all(errmsg);
-                      }
-                      else return -1;
-                  }
-                  else
-                  {
-                      if((fppg->nvalues<len1)||((svm==2) && (fppg->size_array_cols<len2)))
-                      {
-                          if(errflag)
-                          {
-                              sprintf(errmsg,"Length not sufficient for variable ");
-                              strcat(errmsg,varname);
-                              error->all(errmsg);
-                          }
-                          else return -1;
-                      }
-                      else  //success
-                      {
-                          return ifix;
-                      }
-                  }
-              }
-
-          }
-
-      }
-  }
-
-  if (ifix == nfix) {
-      if(errflag)
-      {
-          sprintf(errmsg,"Could not locate a fix/property storing value(s) for ");
-          strcat(errmsg,varname);
-          error->all(errmsg);
-      }
-  }
-  return -1;
 }
 
 /* ----------------------------------------------------------------------
@@ -1281,13 +1135,4 @@ double Modify::memory_usage()
   for (int i = 0; i < nfix; i++) bytes += fix[i]->memory_usage();
   for (int i = 0; i < ncompute; i++) bytes += compute[i]->memory_usage();
   return bytes;
-}
-
-/* ----------------------------------------------------------------------
-   return if fix/compute restart in progress
-------------------------------------------------------------------------- */
-
-int Modify::fix_restart_in_progress()
-{
-    return  nfix_restart_global || nfix_restart_peratom;
 }

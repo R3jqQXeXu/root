@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -88,7 +88,7 @@ void Error::all(const char *str)
 /* ----------------------------------------------------------------------
    called by one proc in world
    write to world screen only if non-NULL on this proc
-   always write to universe screen 
+   always write to universe screen
 ------------------------------------------------------------------------- */
 
 void Error::one(const char *str)
@@ -103,10 +103,22 @@ void Error::one(const char *str)
 
 /* ----------------------------------------------------------------------
    called by one proc in world
-   only write to screen if non-NULL on this proc since could be file 
+   only write to screen if non-NULL on this proc since could be file
 ------------------------------------------------------------------------- */
 
 void Error::warning(const char *str)
 {
   if (screen) fprintf(screen,"WARNING: %s\n",str);
+  if (logfile) fprintf(logfile,"WARNING: %s\n",str);
+}
+
+/* ----------------------------------------------------------------------
+   called by one proc in world
+   only write to screen if non-NULL on this proc since could be file
+------------------------------------------------------------------------- */
+
+void Error::info(const char *str)
+{
+  if (screen) fprintf(screen,"INFO: %s\n",str);
+  if (logfile) fprintf(logfile,"INFO: %s\n",str);
 }

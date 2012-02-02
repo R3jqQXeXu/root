@@ -18,10 +18,12 @@ the GNU General Public License.
 See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
+// contributing author for rotation option: Evan Smuts (U Cape Town)
+
 #include "math.h"
 #include "stdlib.h"
 #include "string.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 #include "atom.h"
 #include "atom_vec.h"
 #include "force.h"
@@ -37,6 +39,8 @@ See the README file in the top-level LAMMPS directory.
 #include "triSpherePenetration.h"
 #include "stl_tri.h"
 #include "mpi.h"
+#include "input_mesh_tri.h"
+#include "stl_input.h"
 
 using namespace LAMMPS_NS;
 
@@ -57,7 +61,7 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
   if (!atom->radius_flag || !atom->rmass_flag)
     error->all("Fix mesh/gran requires atom attributes radius, rmass (atom style granular)");
 
-  stl_filename = arg[3];
+  char *filename = arg[3];
   atom_type_wall = force->inumeric(arg[4]);
   scale_fact=force->numeric(arg[5]);
 
@@ -75,23 +79,62 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
 
   nevery=1; 
 
-  if (comm->me == 0) {
-    fprintf(screen,"\nImporting STL file '%s' \n",stl_filename);
-  }
-
   STLdata = new STLtri(lmp);
 
-  //allocate input class
-  mystl_input = new Input(lmp,0,NULL);
+  if(strlen(filename) < 5) error->all("Illegal fix mesh/gran command, file name too short");
+  char *ext = &(filename[strlen(filename)-3]);
 
-  mystl_input->stlfile(stl_filename,this);
+  bool is_stl = (strcmp(ext,"stl") == 0) || (strcmp(ext,"STL") == 0);
+  bool is_vtk = (strcmp(ext,"vtk") == 0) || (strcmp(ext,"VTK") == 0);
+
+  //case STL file
+  if(is_stl)
+  {
+      if (comm->me == 0) fprintf(screen,"\nImporting STL file '%s' \n",filename);
+
+      InputSTL *mesh_input = new InputSTL(lmp,0,NULL);
+      mesh_input->stlfile(filename,this);
+      delete mesh_input;
+  }
+  else if(is_vtk)
+  {
+      if (comm->me == 0) fprintf(screen,"\nImporting VTK file '%s' \n",filename);
+
+      InputMeshTri *mesh_input = new InputMeshTri(lmp,0,NULL);
+      mesh_input->meshtrifile(filename,this);
+      delete mesh_input;
+  }
+  else error->all("Illegal fix mesh/gran command, need either an STL file or a VTK file as input.");
 
   nTri=STLdata->nTri;
   node=STLdata->node;
   EDGE_INACTIVE=STLdata->EDGE_INACTIVE;
   CORNER_INACTIVE=STLdata->CORNER_INACTIVE;
 
-  if(!modify->fix_restart_in_progress())calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
+  p_ref = new double[3];
+  vectorZeroize3D(p_ref);
+
+  // parse args here that we need for mesh properties
+
+  curvature_ = 1.-EPSILON;
+
+  int iarg2 = iarg;
+  while(iarg2 < narg)
+  {
+      if (strcmp(arg[iarg2],"curvature") == 0)
+      {
+          if (narg < iarg2+2) error->all("Illegal fix mesh/gran command, not enough arguments");
+          iarg2++;
+          curvature_ = atof(arg[iarg2++]);
+          if(comm->me == 0 && screen) fprintf(screen,"INFO: Assuming a mesh curvature of %f° for mesh %s\n",curvature_,id);
+          curvature_ = cos(curvature_*M_PI/180.);
+          
+      }
+      iarg2++;
+  }
+
+  if(!modify->fix_restart_in_progress())
+    calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->Area_total,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
 
   if  (comm->me==0) fprintf(screen,"\nImport of %d triangles completed successfully!\n\n",STLdata->nTri);
 
@@ -101,11 +144,15 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
   STLdata->conv_vel[1] = 0.;
   STLdata->conv_vel[2] = 0.;
 
+  STLdata->rot_omega=0.;
+
   bool hasargs = true;
   while(iarg < narg && hasargs)
   {
       hasargs = false;
-      if(strcmp(arg[iarg],"temperature") == 0)
+      // we already may have parsed curvature
+      if (strcmp(arg[iarg],"curvature") == 0) iarg+=2;
+      else if(strcmp(arg[iarg],"temperature") == 0)
       {
           if (narg < iarg+2) error->all("Illegal fix mesh/gran command, not enough arguments");
           iarg++;
@@ -124,46 +171,65 @@ FixMeshGran::FixMeshGran(LAMMPS *lmp, int narg, char **arg) :
           STLdata->initConveyor();
           hasargs = true;
       }
+      else if (strcmp(arg[iarg],"rotation") == 0)
+      {
+          if (narg < iarg+8) error->all("Illegal fix mesh/gran command, not enough arguments");
+          iarg++;
+          STLdata->rot_origin[0] = atof(arg[iarg++]);
+          STLdata->rot_origin[1] = atof(arg[iarg++]);
+          STLdata->rot_origin[2] = atof(arg[iarg++]);
+          STLdata->rot_axis[0] = atof(arg[iarg++]);
+          STLdata->rot_axis[1] = atof(arg[iarg++]);
+          STLdata->rot_axis[2] = atof(arg[iarg++]);
+          STLdata->rot_omega = atof(arg[iarg++]);	//positive omega give anti-clockwise (CCW) rotation
+          STLdata->initRotation(EPSILON);
+          hasargs = true;
+      }
       else if(strcmp(style,"mesh/gran") == 0) error->all("Illegal fix mesh/gran command, unknown keyword");
   }
 
-  force_total=new double[3];
-  torque_total=new double[3];
-  p_ref=new double[3];
+  analyseStress = false;
 
-  analyseStress=false;
-
-  force_total[0]=0.;force_total[1]=0.;force_total[2]=0.;
-  torque_total[0]=0.;torque_total[2]=0.;torque_total[2]=0.;
-  p_ref[0]=0.;p_ref[2]=0.;p_ref[2]=0.;
-
-  restart_global=1;
+  vectorZeroize3D(force_total);
+  vectorZeroize3D(torque_total);
+  restart_global = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,double ***ogK,double **ogKlen,double ***oKO,double *rK,double *Area,double**facenormal,int **neighfaces,int *contactInactive)
+void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,double ***ogK,double **ogKlen,double ***oKO,double *rK,double *Area, double &Area_total,double**facenormal,int **neighfaces,int *contactInactive)
 {
-      double temp[3];
+      double temp[3],oKO0Neg[3];
       bool flag_skewed = false;
 
-      p_ref = new double[3];
-      p_ref[0]=0.;p_ref[1]=0.;p_ref[2]=0.;
-      double A_tri,A_ges=0.;
-      double oKO0Neg[3];
+      p_ref[0] = p_ref[1] = p_ref[2] = 0.;
+
+      double A_tri, A_ges = 0.;
       int count = 0;
+
+      Area_total = 0.;
 
       for(int i=0;i<nTri;i++)
       {
-          for (int j=0;j<3;j++){  //loop components
-            oKO[i][0][j]=node[i][1][j]-node[i][0][j];
-            oKO[i][1][j]=node[i][2][j]-node[i][1][j];
-            oKO[i][2][j]=node[i][0][j]-node[i][2][j];
+              
+          for (int j=0;j<3;j++)
+          {
+            oKO[i][0][j] = node[i][1][j]-node[i][0][j];
+            oKO[i][1][j] = node[i][2][j]-node[i][1][j];
+            oKO[i][2][j] = node[i][0][j]-node[i][2][j];
           }
-          vectorScalarMult3D(oKO[i][0],-1.,oKO0Neg);
+
+          //vectorScalarMult3D(oKO[i][0],-1.0,oKO0Neg);
+          vectorNegate3D(oKO[i][0],oKO0Neg);
+          /*oKO0Neg[0] = - oKO[i][0][0];
+          oKO0Neg[1] = - oKO[i][0][1];
+          oKO0Neg[2] = - oKO[i][0][2];*/
+
           vectorCross3D(oKO0Neg,oKO[i][1],temp);
           A_tri=0.5*vectorMag3D(temp);
-          Area[i]=A_tri;
+
+          Area[i] = A_tri;
+          Area_total += A_tri;
 
           vectorCopy3D(node[i][0],temp);
           vectorAdd3D(temp,node[i][1],temp);
@@ -185,7 +251,7 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
             oKO[i][2][j]=node[i][0][j]-node[i][2][j];
           }
 
-          double mag0=vectorMag3D(oKO[i][0]),mag1=vectorMag3D(oKO[i][1]),mag2=vectorMag3D(oKO[i][2]);
+          double mag0 = vectorMag3D(oKO[i][0]), mag1 = vectorMag3D(oKO[i][1]), mag2 = vectorMag3D(oKO[i][2]);
           double sr0 = fmax(mag0/mag1,mag1/mag0),sr1 = fmax(mag1/mag2,mag2/mag1),sr2 = fmax(mag0/mag2,mag2/mag0);
           double side_ratio_max = fmax(fmax(sr0,sr1),sr2);
           if(side_ratio_max > SIDE_RATIO_TOLERANCE) flag_skewed=true;
@@ -218,7 +284,7 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
           {
 
               char *buff=new char[100];
-              sprintf(buff,"STL import failed at triangle #%d (line %d), degenerated triangle?",i,i*7+1);
+              sprintf(buff,"STL import failed at triangle #%d (line %d), degenerated triangle or scaling factor too low?",i,i*7+1);
               lmp->error->all(buff);
           }
 
@@ -229,7 +295,8 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
           vectorScalarMult3D(cK[i],lambda);
           vectorAdd3D(cK[i],node[i][0],cK[i]);
 
-          for(int j=0;j<3;j++)
+          rK[i] = 0.;
+          for(int j = 0; j < 3; j++)
           {
               vectorSubtract3D(cK[i],node[i][j],temp);
               double dot=vectorDot3D(temp,oKO[i][j]);
@@ -240,34 +307,48 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
               vectorSubtract3D(ogK[i][j],cK[i],ogK[i][j]);
 
               ogKlen[i][j]=vectorMag3D(ogK[i][j]);
-          }
 
-          rK[i]=vectorMag3D(ogK[i][0]);
+              vectorSubtract3D(cK[i],node[i][j],temp);
+              double tempmag = vectorMag3D(temp);
+              if(tempmag > rK[i]) rK[i] = tempmag;
+          }
 
       }
       if(flag_skewed && comm->me ==0) error->warning("Imported mesh contains skewed triangles with a size ratio larger 10");
 
       if(comm->me==0)fprintf(screen,"Mesh calculations running. This may take a while...");
       int common_c, common1[3], common2[3];
+
+      //init with no neighbor
       for(int i=0;i<nTri;i++) 
+          neighfaces[i][0] = neighfaces[i][1] = neighfaces[i][2] = -1;
+
+      for(int i = 0; i < nTri; i++) 
       {
-          for(int j=i+1;j<nTri;j++) 
+          for(int j = i+1; j < nTri; j++) 
           {
               
+              vectorSubtract3D(cK[i],cK[j],temp);
+              double tempmagSqr = vectorMag3DSquared(temp);
+              double tresh = (rK[i]+rK[j]);
+              if(tempmagSqr > tresh*tresh) continue;
+
               common_c=0;
               for(int k=0;k<3;k++)
               {
                   common1[k]=0;common2[k]=0;
               }
               
-              for(int iVertex=0;iVertex<3;iVertex++)
+              for(int iVertex = 0; iVertex < 3; iVertex++)
               {
-                 for(int jVertex=0;jVertex<3;jVertex++)
+                 for(int jVertex = 0; jVertex < 3; jVertex++)
                  {
                      vectorSubtract3D(node[i][iVertex],node[j][jVertex],temp);
                      
-                     double dist=vectorMag3D(temp);
-                     if(dist < NEIGH_TOLERANCE*0.5*(rK[i]+rK[j]))
+                     double dist = vectorMag3D(temp);
+                     
+                     double tresh = NEIGH_TOLERANCE*0.5*(rK[i]+rK[j]);
+                     if(dist < tresh)
                      {
                          
                          common1[iVertex]=1;
@@ -276,11 +357,13 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
                      }
                  }
               }
-              
+
+              if(common_c>3) error->all("STL import failed because of tolerance issue");
+
               if(common_c==3)
               {
                   char *buff=new char[100];
-                  sprintf(buff,"STL import failed because triangles #%d (line %d) and #%d (line %d) are duplicate",i,i*7+1,j,j*7+1);
+                  sprintf(buff,"STL import failed because triangles #%d (line %d) and #%d (line %d) are duplicate (within neighbor tolerance)",i,i*7+2,j,j*7+2);
                   lmp->error->all(buff);
               }
               
@@ -311,13 +394,13 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
               {
                   
                   double dot = vectorDot3D(facenormal[i],facenormal[iNeigh]);
-                  if(fabs(dot) > (1.-EPSILON) )
+                  if(fabs(dot) > curvature_ )
                   {
                       contactInactive[i] |= EDGE_INACTIVE[j];
                       
                   }
 
-                  if(iNeigh > i)
+                  else if(iNeigh > i)
                   {
                       contactInactive[i] |= EDGE_INACTIVE[j];
                       
@@ -338,7 +421,7 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
               {
                   double dot1=vectorDot3D(facenormal[i],facenormal[neigh1]);
                   double dot2=vectorDot3D(facenormal[i],facenormal[neigh2]);
-                  if(fabs(dot1)>(1-EPSILON) && fabs(dot2)>(1-EPSILON))
+                  if(fabs(dot1)>curvature_ && fabs(dot2)>curvature_)
                   {
                       contactInactive[i] |= CORNER_INACTIVE[j];
                       
@@ -357,8 +440,9 @@ void FixMeshGran::calcTriCharacteristics(int nTri,double ***node,double **cK,dou
           }
       }
       delete []prevFaces;
-      
-      if(comm->me==0)fprintf(screen,"finished!\n");
+
+      if(comm->me==0) fprintf(screen,"finished!\n");
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -374,7 +458,7 @@ int FixMeshGran::get_max_index_sharedcorner(int iTri,int &nPrev,int *prevFaces,d
 
     double temp[3];
 
-    for(int ic = 0; ic < nPrev-1; ic++)
+    for(int ic = 0; ic < nPrev; ic++)
        if(prevFaces[ic] == iTri) return -1;
 
     prevFaces[nPrev++] = iTri;
@@ -412,10 +496,7 @@ int FixMeshGran::get_max_index_sharedcorner(int iTri,int &nPrev,int *prevFaces,d
 
 FixMeshGran::~FixMeshGran()
 {
-   delete mystl_input;
    delete STLdata;
-   delete []force_total;
-   delete []torque_total;
    delete []p_ref;
 }
 
@@ -487,7 +568,7 @@ void FixMeshGran::restart(char *buf)
 
   nTri=STLdata->nTri;
   node=STLdata->node;
-  calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
+  calcTriCharacteristics(STLdata->nTri,STLdata->node,STLdata->cK,STLdata->ogK,STLdata->ogKlen,STLdata->oKO,STLdata->rK,STLdata->Area,STLdata->Area_total,STLdata->facenormal,STLdata->neighfaces,STLdata->contactInactive);
 
   children_restart(&(list[n]));
 }

@@ -29,7 +29,7 @@ FixStyle(mesh/gran/stressanalysis,FixMeshGranAnalyze)
 
 #include "fix.h"
 #include "math.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 
 namespace LAMMPS_NS {
 
@@ -40,7 +40,7 @@ class FixMeshGranAnalyze : public FixMeshGran {
   ~FixMeshGranAnalyze();
   virtual int setmask();
   void pre_force(int);
-  void add_particle_contribution(double*,double*,int,int);
+  virtual void add_particle_contribution(double*,double*,int,double*,int,int);
   virtual void final_integrate();
   virtual void init();
   virtual int write_restart_sub(FILE * fp,int n){return n;}

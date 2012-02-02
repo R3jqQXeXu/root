@@ -31,7 +31,7 @@ See the README file in the top-level LAMMPS directory.
 #include "math.h"
 #include "myvector.h"
 #include "fix_cfd_coupling_convection.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_atom.h"
 
 using namespace LAMMPS_NS;
 
@@ -82,14 +82,14 @@ void FixCfdCouplingConvection::special_settings()
         char* fixarg[11];
         fixarg[0]="convectiveHeatFlux";
         fixarg[1]="all";
-        fixarg[2]="property/peratom";
+        fixarg[2]="property/atom";
         fixarg[3]="convectiveHeatFlux";
         fixarg[4]="scalar"; 
         fixarg[5]="no";    
         fixarg[6]="yes";    
         fixarg[7]="no";    
         fixarg[8]="0.";
-        fix_convectiveFlux = modify->add_fix_property_peratom(9,fixarg);
+        fix_convectiveFlux = modify->add_fix_property_atom(9,fixarg);
   }
 
   //add heat transfer model if not yet active
@@ -130,9 +130,9 @@ void FixCfdCouplingConvection::init_submodel()
   //values to come from OF
   add_pull_property("convectiveHeatFlux","scalar");
 
-  fix_heatFlux = static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property("heatFlux","property/peratom","scalar",0,0)]);
+  fix_heatFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("heatFlux","property/atom","scalar",0,0));
 
-  fix_convectiveFlux = static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property("convectiveHeatFlux","property/peratom","scalar",0,0)]);
+  fix_convectiveFlux = static_cast<FixPropertyAtom*>(modify->find_fix_property("convectiveHeatFlux","property/atom","scalar",0,0));
 }
 
 /* ---------------------------------------------------------------------- */

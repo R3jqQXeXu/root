@@ -29,27 +29,35 @@ using namespace LAMMPS_NS;
 namespace LAMMPS_NS {
     class ParticleToInsert : protected Pointers
     {
-      public:
-        ParticleToInsert(LAMMPS* lmp,int ns);
-        ~ParticleToInsert();
+     public:
 
-        void random_rotate(double,double,double);
+        ParticleToInsert(LAMMPS* lmp,int ns = 1);
 
+        virtual ~ParticleToInsert();
+
+        // insertion properties
         int nspheres;
+        int groupbit;
         int atom_type;
         double density_ins;
         double volume_ins;
         double mass_ins;
+        double r_bound_ins;
+
+        // per-sphere radius, position
         double *radius_ins;
         double **x_ins;
-        double r_bound;
-        double *x_bound;
-        double *xcm; 
 
-        double *inertia;
-        double *ex_space,*ey_space,*ez_space;
-        double **displace;
+        // velocity and omega at insertion
+        
+        double v_ins[3];
+        double omega_ins[3];
 
+        virtual int insert();
+        virtual int check_near_set_x_v_omega(double *x,double *v, double *omega, double *quat, double **xnear, int &nnear);
+        virtual int set_x_v_omega(double *,double *,double *,double *);
+
+        virtual void scale_pti(double r_scale);
     };
 
 }

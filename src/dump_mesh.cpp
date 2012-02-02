@@ -26,7 +26,7 @@ See the README file in the top-level LAMMPS directory.
 #include "group.h"
 #include "error.h"
 #include "fix.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 #include "modify.h"
 #include "comm.h"
 
@@ -40,11 +40,12 @@ DumpMesh::DumpMesh(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
 {
   if (narg < 6) error->all("Illegal dump mesh/gran/VTK command");
 
-  //INFO: CURRENTLY ONLY PROC 0 writes
+  //info: CURRENTLY ONLY PROC 0 writes
 
   //multifile=1;             // 0 = one big file, 1 = one file per timestep
   //multiproc=0;             // 0 = proc 0 writes for all, 1 = one file/proc
-    if (multiproc!=0) error->warning("Your 'dump mesh/gran/VTK' command is writing one file per processor, where all the files contain the same data");
+  if (multiproc) error->warning("Your 'dump mesh/gran/VTK' command is writing one file per processor, where all the files contain the same data");
+  if (!multifile) error->all("Illegal dump mesh/gran/VTK command, you have to write one file per time-step by using the '*' in the file-name");
 
   STLList=new STLtri*[nFixMeshGran];
   for (int i=0;i<nFixMeshGran;i++) STLList[i]=(STLtri*)NULL;
@@ -66,6 +67,12 @@ DumpMesh::DumpMesh(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
       if(strcmp(arg[iarg],"stress")==0)
       {
           dump_what |= DUMP_STRESS;
+          iarg++;
+          hasargs = true;
+      }
+      else if(strcmp(arg[iarg],"stresscomponents")==0)
+      {
+          dump_what |= DUMP_STRESSCOMPONENTS;
           iarg++;
           hasargs = true;
       }
@@ -133,6 +140,10 @@ void DumpMesh::init()
 
   if(STLList_len<meshid_len) error->warning("Dump stl could not locate all fixes of type 'mesh/gran' that you wish to dump");
   if (STLList_len==0) error->warning("Dump stl cannot find any fix of type 'mesh/gran' to dump");
+
+  for (int i = 0; i < STLList_len; i++){
+      if(!STLList[i]->mesh_moving()) error->warning("Dump mesh/gran/VTK contains a mesh with no velocity allocated, will not dump velocity");
+  }
 
   // default format not needed
 
@@ -308,5 +319,19 @@ void DumpMesh::write_item(int n, double *mybuf)
           }
       }
   }
+
+  if(dump_what & DUMP_STRESSCOMPONENTS)
+  {
+     //write x y z component
+     fprintf(fp,"VECTORS force float\n");
+     for (int i = 0; i < STLList_len; i++)
+     {
+         double **f_tri = STLList[i]->f_tri;
+         double * Area = STLList[i]->Area;
+         for (int j=0;j<STLList[i]->nTri;j++)
+            fprintf(fp, "%f\t%f\t%f\n",f_tri[j][0]/Area[j], f_tri[j][1]/Area[j],f_tri[j][2]/Area[j]);
+      }
+   }
   //footer not needed
+  //if would be needed, would do like in dump stl
 }

@@ -1,102 +1,88 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
-<HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
-	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
-	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGEDBY" CONTENT="ckloss ">
-	<META NAME="CHANGED" CONTENT="20110321;12123000">
-	<STYLE TYPE="text/css">
-	<!--
-		H3.western { font-family: "Albany", sans-serif }
-		H3.cjk { font-family: "HG Mincho Light J" }
-		H3.ctl { font-family: "Arial Unicode MS" }
-		PRE.cjk { font-family: "DejaVu Sans", monospace }
-	-->
-	</STYLE>
-</HEAD>
-<BODY LANG="en-US" DIR="LTR">
-<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A HREF="http://www.liggghts.com/"><FONT FACE="Liberation Serif, serif">LIGGGHTS
-WWW Site</FONT></A> <FONT FACE="Liberation Serif, serif">- <A HREF="Manual.html">LIGGGHTS
-Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
-<A HREF="Section_commands.html#comm">LIGGGHTS Commands</A></FONT> 
-</P>
+<CENTER><A HREF = "http://www.cfdem.com">LIGGGHTS WWW Site</A> - <A HREF = "Manual.html">LIGGGHTS Documentation</A> - <A HREF = "Section_commands.html#comm">LIGGGHTS Commands</A> 
+</CENTER>
+
+
+
+
+
+
 <HR>
-<H3 CLASS="western">fix check/timestep/gran command 
+
+<H3>fix check/timestep/gran command 
 </H3>
-<P><B>Syntax:</B> 
+<P><B>Syntax:</B>
 </P>
-<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ID group-ID check/timestep/gran nevery fraction_r fraction_h </PRE>
-<UL>
-	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
-	command 
-	</P>
-	<LI><P STYLE="margin-bottom: 0in">check/timestep/gran = style name
-	of this fix command 
-	</P>
-	<LI><P STYLE="margin-bottom: 0in">nevery = estimate time-step size
-	accuracy every this many time-steps</P>
-	<LI><P STYLE="margin-bottom: 0in">fraction_r = warn in time-step
-	size exceeds this fraction of the Rayleigh time-step size</P>
-	<LI><P STYLE="margin-bottom: 0in">fraction_h = warn in time-step
-	size exceeds this fraction of the Hertz time-step size</P>
+<PRE>fix ID group-ID check/timestep/gran nevery fraction_r fraction_h 
+</PRE>
+<UL><LI>ID, group-ID are documented in <A HREF = "fix.html">fix</A> command 
+
+<LI>check/timestep/gran = style name of this fix command 
+
+<LI>nevery = evaluate time-step size accuracy every this many time-steps 
+
+<LI>fraction_r = warn if time-step size exceeds this fraction of the Rayleigh time 
+
+<LI>fraction_h = warn if time-step size exceeds this fraction of the Hertz time 
+
+
 </UL>
-<P><B>Examples:</B> 
+<P><B>Examples:</B>
 </P>
-<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ts_check all check/timestep/gran 1000 0.1 0.1</PRE><P>
-<B>Description:</B> 
+<PRE>fix ts_check all check/timestep/gran 1000 0.1 0.1 
+</PRE>
+<P><B>Description:</B>
 </P>
-<P>Periodically calculate estimations of the Rayleigh- and Hertz
-time-step sizes <FONT FACE="Standard Symbols L">d</FONT>t_r and <FONT FACE="Standard Symbols L">d</FONT>t_h
-for a granular system every 'nevery' time-steps. The user can specify
-two quantities 'fraction_r' and 'fraction_h'. A warning message is
-printed if the time-step size <FONT FACE="Standard Symbols L">D</FONT>t
-exceeds either of <FONT FACE="Standard Symbols L">d</FONT>t_r*
-fraction_r or <FONT FACE="Standard Symbols L">d</FONT>t_h*fraction_h.
+<P>Periodically calculate estimations of the Rayleigh- and Hertz time
+dt_r and dt_h for a granular system every 'nevery' time-steps. The user 
+can specify two quantities <I>fraction_r</I> and <I>fraction_h</I>. A warning 
+message is printed if the time-step size as specified via the 
+<A HREF = "timestep.html">timestep</A> command exceeds either of dt_r * fraction_r 
+or dt_h * fraction_h.
 </P>
-<P>The former quantity is : 
+The former quantity is 
+
+<P>dt_r = PI*r*sqrt(rho/G)/(0.1631*nu+0.8766),
 </P>
-<P><FONT FACE="Standard Symbols L">d</FONT>t_r
-=PI*r*sqrt(<FONT FACE="Liberation Serif, serif">rho</FONT>/Y)/(0.1631*<FONT FACE="Standard Symbols L">n</FONT>+0.8766),</P>
-<P>where <FONT FACE="Liberation Serif, serif">rho </FONT>is particle
-density, Y is the Young's modulus and is <FONT FACE="Standard Symbols L">n</FONT>
-Poisson's ratio. The latter is expressed by</P>
-<P><FONT FACE="Standard Symbols L">d</FONT>t_h
-=2.87*(m_eff²/(r_eff*G_eff²*v_max)^0.2.</P>
-<P>The effective mass m_eff, the effective radius r_eff and the
-effective shear modulus G_eff are as defined in <A HREF="pair_gran.html">pair
-gran</A>. v_max is the maximum relative velocity, taking mesh
-movement into account. Please note that the Hertz criterion will also
-be used if you use a different granular pair style (e.g. Hooke).</P>
-<P>Additionally, this command checks the ratio of skin to the
-distance that particles can travel relative to each other in one
-time-step. This value should be &gt;1, otherwise some interactions
-may be missed or overlap energy may be generated artifically. This
-command will warn you if this is the case.</P>
-<P>These formulas are evaluated every 'nevery' time-steps. Rayleigh
-time-step size <FONT FACE="Standard Symbols L">d</FONT>t_r is
-calculated for each particle in the simulation, and the minimum value
-is taken for further calculations. Hertz time-step size <FONT FACE="Standard Symbols L">d</FONT>t_h
-is estimated by testing a collision of each particle with itself
-using v_max as the assumed collision velocity. 
+<P>where rho is particle density, G is the shear modulus and nu is Poisson's 
+ratio. The latter quantity is expressed by
+</P>
+<P>dt_h = 2.87*(m_eff^2/(r_eff*Y_eff^2*v_max)^0.2.
+</P>
+<P>The effective mass m_eff, the effective radius r_eff and the effective Young's 
+modulus Y_eff are as defined in <A HREF = "pair_gran.html">pair gran</A>. v_max is the 
+maximum relative velocity, taking mesh movement into account. Please note 
+that the Hertz criterion will also be used if you use a different granular 
+pair style (e.g. Hooke).
+</P>
+<P>Additionally, this command checks the ratio of skin to the distance that 
+particles can travel relative to each other in one time-step. This value 
+should be >1, otherwise some interactions may be missed or overlap energy 
+may be generated artificially. This command will warn you if this is the case.
+</P>
+<P>These criteria are checked every 'nevery' time-steps. Rayleigh time dt_r is 
+calculated for each particle in the simulation, and the minimum value is 
+taken for further calculations. Hertz time dt_h is estimated by testing a 
+collision of each particle with itself using v_max as the assumed collision 
+velocity.
 </P>
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
 </P>
-<P>This fix computes a 3-vector of forces, which can be accessed by
-various <A HREF="Section_howto.html#4_15">output commands</A>. The
-vector consists of the time-step size expressed as fraction of the
-Rayleigh and Hertz time-step sizes and the ratio of skin to the
-distance particles can travel relative to each other in one
-time-step, respectively. No parameter of this fix can be used with
-the <I>start/stop</I> keywords of the <A HREF="run.html">run</A>
-command. 
+<P>No information about this fix is written to <A HREF = "restart.html">binary restart
+files</A>.  None of the <A HREF = "fix_modify.html">fix_modify</A> options
+are relevant to this fix.  This fix computes a 3-vector, for access by 
+various <A HREF = "Section_howto.html#4_15">output commands</A>.  The vector consists 
+of the time-step size expressed as fraction of the Rayleigh and Hertz 
+time-step sizes and the ratio of skin to the distance particles can 
+travel relative to each other in one time-step, respectively. No 
+parameter of this fix can be used with the <I>start/stop</I> keywords of 
+the <A HREF = "run.html">run</A> command. This fix is not invoked during 
+<A HREF = "minimize.html">energy minimization</A>.
 </P>
-<P><B>Restrictions:</B> none 
+<P><B>Restrictions:</B> none
 </P>
-<P><B>Related commands:</B> 
+<P><B>Related commands:</B> none
 </P>
-<P><B>Default:</B> none 
+<P><B>Default:</B> none
 </P>
-</BODY>
 </HTML>

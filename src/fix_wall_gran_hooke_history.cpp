@@ -29,14 +29,17 @@ See the README file in the top-level LAMMPS directory.
 #include "pair_gran_hooke_history.h"
 #include "atom.h"
 #include "force.h"
+#include "update.h"
 #include "pair.h"
 #include "modify.h"
 #include "memory.h"
 #include "error.h"
-#include "fix_propertyGlobal.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_global.h"
+#include "compute_pair_gran_local.h"
+#include "fix_property_atom.h"
 #include "mech_param_gran.h"
 #include "fix_rigid.h"
+#include "myvector.h"
 
 using namespace LAMMPS_NS;
 
@@ -70,6 +73,13 @@ FixWallGranHookeHistory::~FixWallGranHookeHistory()
 
 /* ---------------------------------------------------------------------- */
 
+void FixWallGranHookeHistory::post_create()
+{
+    FixWallGran::post_create();
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixWallGranHookeHistory::init_substyle()
 {
   //get material properties
@@ -89,9 +99,9 @@ void FixWallGranHookeHistory::init_substyle()
   int max_type = pairgran->mpg->max_type();
   FixPropertyGlobal *coeffRollFrict1, *cohEnergyDens1;
   if(rollingflag)
-    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type)]);
+    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type));
   if(cohesionflag)
-    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
+    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type));
 
   //pre-calculate parameters for possible contact material combinations
   for(int i=1;i< max_type+1; i++)
@@ -112,7 +122,7 @@ void FixWallGranHookeHistory::compute_force(int ip, double deltan, double rsq,do
 {
   double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3,wrmag;
   double wr1,wr2,wr3,damp,ccel,vtr1,vtr2,vtr3,vrel;
-  double fn,fs,fs1,fs2,fs3,fx,fy,fz,tor1,tor2,tor3;
+  double fn,fs,fs1,fs2,fs3,fx,fy,fz,tor1,tor2,tor3,r_torque[3],r_torque_n[3];
   double shrmag,rsht,rinv,rsqinv;
   double kn, kt, gamman, gammat, xmu, rmu;
   double cri, crj;
@@ -179,7 +189,7 @@ void FixWallGranHookeHistory::compute_force(int ip, double deltan, double rsq,do
   vrel = sqrt(vrel);
 
   // shear history effects
-  if (shearupdate)
+  if (shearupdate && addflag)
   {
       c_history[0] += vtr1*dt;
       c_history[1] += vtr2*dt;
@@ -231,9 +241,12 @@ void FixWallGranHookeHistory::compute_force(int ip, double deltan, double rsq,do
   fy = dy*ccel + fs2;
   fz = dz*ccel + fs3;
 
-  f[0] += fx*area_ratio;
-  f[1] += fy*area_ratio;
-  f[2] += fz*area_ratio;
+  if(addflag)
+  {
+      f[0] += fx*area_ratio;
+      f[1] += fy*area_ratio;
+      f[2] += fz*area_ratio;
+  }
 
   tor1 = rinv * (dy*fs3 - dz*fs2);
   tor2 = rinv * (dz*fs1 - dx*fs3);
@@ -244,15 +257,25 @@ void FixWallGranHookeHistory::compute_force(int ip, double deltan, double rsq,do
 	    wrmag = sqrt(wr1*wr1+wr2*wr2+wr3*wr3);
 	    if (wrmag > 0.)
 	    {
-	        tor1 += rmu*kn*(radius-r)*wr1/wrmag;
-            tor2 += rmu*kn*(radius-r)*wr2/wrmag;
-            tor3 += rmu*kn*(radius-r)*wr3/wrmag;
+	        r_torque[0] = rmu*kn*(radius-r)*wr1/wrmag*cr;
+            r_torque[1] = rmu*kn*(radius-r)*wr2/wrmag*cr;
+            r_torque[2] = rmu*kn*(radius-r)*wr3/wrmag*cr;
 	    }
+        // remove normal (torsion) part of torque
+        r_torque_n[0] = r_torque[0] * dx * rinv;
+        r_torque_n[1] = r_torque[1] * dy * rinv;
+        r_torque_n[2] = r_torque[2] * dz * rinv;
+        vectorSubtract3D(r_torque,r_torque_n,r_torque);
   }
+  else vectorZeroize3D(r_torque);
 
-  torque[0] -= cr*tor1*area_ratio;
-  torque[1] -= cr*tor2*area_ratio;
-  torque[2] -= cr*tor3*area_ratio;
+  if(addflag)
+  {
+      torque[0] -= cr*tor1*area_ratio + r_torque[0];
+      torque[1] -= cr*tor2*area_ratio + r_torque[1];
+      torque[2] -= cr*tor3*area_ratio + r_torque[2];
+  }
+  else if(cwl) cwl->add_wall_2(ip,fx,fy,fz,tor1*area_ratio,tor2*area_ratio,tor3*area_ratio,c_history,rsq);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -281,7 +304,12 @@ void FixWallGranHookeHistory::addHeatFlux(int ip, double rsq, double area_ratio)
     if ((fabs(tcop) < SMALL) || (fabs(tcowall) < SMALL)) hc = 0.;
     else hc = 4.*tcop*tcowall/(tcop+tcowall)*sqrt(Acont);
 
-    heatflux[ip] += (Temp_wall-Temp_p[ip]) * hc;
+    if(addflag)
+    {
+        heatflux[ip] += (Temp_wall-Temp_p[ip]) * hc;
+        Q_add += (Temp_wall-Temp_p[ip]) * hc * update->dt;
+    }
+    else if(cwl) cwl->add_heat_wall(ip,(Temp_wall-Temp_p[ip]) * hc);
     
 }
 

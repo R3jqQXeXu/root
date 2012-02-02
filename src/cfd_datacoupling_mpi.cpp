@@ -53,7 +53,7 @@ CfdDatacouplingMPI::CfdDatacouplingMPI(LAMMPS *lmp,int jarg, int narg, char **ar
   allreduce_short = NULL;
   allreduce_long = NULL;
 
-  if(comm->me == 0 && screen) fprintf(screen,"INFO: nevery as specified in LIGGGHTS is overriden by calling external program");
+  if(comm->me == 0) error->info("nevery as specified in LIGGGHTS is overriden by calling external program");
 
 }
 
@@ -85,7 +85,8 @@ void CfdDatacouplingMPI::pull(char *name,char *type,void *&from)
     if(strcmp(type,"scalar") == 0)
     {
       double **fromdouble = (double**)from;
-      MPI_Allreduce(&(fromdouble[0][0]),&(allreduce_short[0][0]),natomsmax,MPI_DOUBLE,MPI_SUM,world);
+
+      if(natomsmax) MPI_Allreduce(&(fromdouble[0][0]),&(allreduce_short[0][0]),natomsmax,MPI_DOUBLE,MPI_SUM,world);
 
       int m;
       double *todouble = (double*)to;
@@ -99,7 +100,9 @@ void CfdDatacouplingMPI::pull(char *name,char *type,void *&from)
     if(strcmp(type,"vector") == 0)
     {
         double **fromdouble = (double**)from;
-        MPI_Allreduce(&(fromdouble[0][0]),&(allreduce_long[0][0]),3*natomsmax,MPI_DOUBLE,MPI_SUM,world);
+
+        if(natomsmax) MPI_Allreduce(&(fromdouble[0][0]),&(allreduce_long[0][0]),3*natomsmax,MPI_DOUBLE,MPI_SUM,world);
+
         int m;
         double **todouble = (double**)to;
         for (int i = 0; i < natomsmax; i++) {
@@ -142,7 +145,7 @@ void CfdDatacouplingMPI::push(char *name,char *type,void *&to)
             id = tag[i];
             allreduce_short[id-1][0] = fromdouble[i];
         }
-        MPI_Allreduce(&(allreduce_short[0][0]),&(todouble[0][0]),natomsmax,MPI_DOUBLE,MPI_SUM,world);
+        if(natomsmax) MPI_Allreduce(&(allreduce_short[0][0]),&(todouble[0][0]),natomsmax,MPI_DOUBLE,MPI_SUM,world);
     }
     else if(strcmp(type,"vector") == 0)
     {
@@ -154,7 +157,7 @@ void CfdDatacouplingMPI::push(char *name,char *type,void *&to)
             allreduce_long[id-1][1] = fromdouble[i][1];
             allreduce_long[id-1][2] = fromdouble[i][2];
         }
-        MPI_Allreduce(&(allreduce_long[0][0]),&(todouble[0][0]),3*natomsmax,MPI_DOUBLE,MPI_SUM,world);
+        if(natomsmax) MPI_Allreduce(&(allreduce_long[0][0]),&(todouble[0][0]),3*natomsmax,MPI_DOUBLE,MPI_SUM,world);
     }
 }
 

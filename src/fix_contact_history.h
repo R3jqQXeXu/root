@@ -66,7 +66,7 @@ class FixContactHistory : public Fix {
   int maxtouch;                 // max number of partners per atom 
   void grow_arrays_maxtouch(int);
 
-  class Pair *pair;
+  class PairGran *pair_gran;
 
   int dnum;
   int *newtonflag;

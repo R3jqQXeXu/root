@@ -50,11 +50,11 @@ class FixScalarTransportEquation : public Fix {
 
   char *equation_id;
 
-  class FixPropertyPerAtom* fix_quantity;
+  class FixPropertyAtom* fix_quantity;
   char *quantity_name;
-  class FixPropertyPerAtom* fix_flux;
+  class FixPropertyAtom* fix_flux;
   char *flux_name;
-  class FixPropertyPerAtom* fix_source;
+  class FixPropertyAtom* fix_source;
   char *source_name;
 
   //storage capacity - would be thermal capacity for heat conduction

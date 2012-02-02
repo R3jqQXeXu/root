@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -19,6 +19,10 @@
 #include "domain.h"
 #include "lattice.h"
 #include "error.h"
+#include "random_park.h"
+#include "myvector.h"
+#include "mympi.h"
+#include "comm.h"
 
 using namespace LAMMPS_NS;
 
@@ -45,6 +49,8 @@ Region::~Region()
 {
   delete [] id;
   delete [] style;
+
+  if (random) delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -67,6 +73,8 @@ void Region::options(int narg, char **arg)
   interior = 1;
   scaleflag = 1;
   dynamic = NONE;
+
+  seed = 3012211;
 
   int iarg = 0;
   while (iarg < narg) {
@@ -108,12 +116,19 @@ void Region::options(int narg, char **arg)
       period = atof(arg[iarg+7]);
       dynamic = ROTATE;
       iarg += 8;
-    } else error->all("Illegal region command");
+    
+    } else if (strcmp(arg[iarg],"seed") == 0) {
+      if (iarg+2 > narg) error->all("Illegal region command");
+      seed = atoi(arg[iarg+1]);
+    }
+    else error->all("Illegal region command");
   }
 
+  random = new RanPark(lmp,seed);
+
   // error check
-  
-  if (dynamic && 
+
+  if (dynamic &&
       (strcmp(style,"union") == 0 || strcmp(style,"intersect") == 0))
     error->all("Region union or intersect cannot be dynamic");
 
@@ -152,7 +167,7 @@ void Region::options(int narg, char **arg)
 
   if (dynamic == ROTATE) {
     double len = sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
-    if (len == 0.0) 
+    if (len == 0.0)
       error->all("Region cannot have 0 length rotation vector");
     runit[0] = axis[0]/len;
     runit[1] = axis[1]/len;
@@ -303,7 +318,7 @@ void Region::rotate(double &x, double &y, double &z, double angle)
 
   double sine = sin(angle);
   double cosine = cos(angle);
-  double x0dotr = x*runit[0] + y*runit[1] + z*runit[2]; 
+  double x0dotr = x*runit[0] + y*runit[1] + z*runit[2];
   c[0] = x0dotr * runit[0];
   c[1] = x0dotr * runit[1];
   c[2] = x0dotr * runit[2];
@@ -322,4 +337,112 @@ void Region::rotate(double &x, double &y, double &z, double angle)
   x = point[0] + c[0] + disp[0];
   y = point[1] + c[1] + disp[1];
   z = point[2] + c[2] + disp[2];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Region::reset_random(int new_seed)
+{
+    if(comm->me == 0) fprintf(screen,"INFO: Resetting random generator for region %s\n",id);
+    random->reset(new_seed);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Region::generate_random(double *pos)
+{
+    if(!bboxflag) error->all("Impossible to generate random points on region with incomputable bounding box");
+    do
+    {
+        pos[0] = extent_xlo + random->uniform() * (extent_xhi - extent_xlo);
+        pos[1] = extent_ylo + random->uniform() * (extent_yhi - extent_ylo);
+        pos[2] = extent_zlo + random->uniform() * (extent_zhi - extent_zlo);
+    }
+    while(!match(pos[0],pos[1],pos[2]));
+}
+
+/* ---------------------------------------------------------------------- */
+
+// generates a random point that has a min distance from surface
+void Region::generate_random_cut_away(double *pos,double cut)
+{
+    if(!bboxflag) error->all("Impossible to generate random points on region with incomputable bounding box");
+    do
+    {
+        pos[0] = extent_xlo + random->uniform() * (extent_xhi - extent_xlo);
+        pos[1] = extent_ylo + random->uniform() * (extent_yhi - extent_ylo);
+        pos[2] = extent_zlo + random->uniform() * (extent_zhi - extent_zlo);
+    }
+    while(!match(pos[0],pos[1],pos[2]) || match_cut(pos,cut));
+}
+
+/* ---------------------------------------------------------------------- */
+
+// generates a random point that has a min distance from surface
+void Region::generate_random_within_cut(double *pos,double cut)
+{
+    if(!bboxflag) error->all("Impossible to generate random points on region with incomputable bounding box");
+    do
+    {
+        pos[0] = extent_xlo + random->uniform() * (extent_xhi - extent_xlo);
+        pos[1] = extent_ylo + random->uniform() * (extent_yhi - extent_ylo);
+        pos[2] = extent_zlo + random->uniform() * (extent_zhi - extent_zlo);
+    }
+    while(!match_cut(pos,cut));
+}
+
+/* ---------------------------------------------------------------------- */
+
+int Region::match_cut(double *pos,double cut)
+{
+  double a[3],b[3],c[3],d[3],x[3];
+  vectorCopy3D(pos,x);
+
+  if (dynamic) {
+    double delta = (update->ntimestep - time_origin) * dt;
+    if (dynamic == VELOCITY) {
+      x[0] -= vx*delta;
+      x[1] -= vy*delta;
+      x[2] -= vz*delta;
+    } else if (dynamic == WIGGLE) {
+      double arg = omega_rotate * delta;
+      double sine = sin(arg);
+      x[0] -= ax*sine;
+      x[1] -= ay*sine;
+      x[2] -= az*sine;
+    } else if (dynamic == ROTATE) {
+      double angle = -omega_rotate*delta;
+      rotate(x[0],x[1],x[2],angle);
+    }
+  }
+
+  if(interior) return surface_interior(x,cut);
+  else return surface_exterior(x,cut);
+}
+
+/* ---------------------------------------------------------------------- */
+
+double Region::volume_mc(int n_test)
+{
+    // impossible to calculate volume if bbox non-existent
+    if(!bboxflag) return 0;
+
+    double pos[3],bbox_vol,region_vol;
+    int n_in = 0;
+
+    for(int i = 0; i < n_test; i++)
+    {
+        pos[0] = extent_xlo + random->uniform() * (extent_xhi - extent_xlo);
+        pos[1] = extent_ylo + random->uniform() * (extent_yhi - extent_ylo);
+        pos[2] = extent_zlo + random->uniform() * (extent_zhi - extent_zlo);
+        if(!domain->is_in_subdomain(pos)) continue;
+        if(match(pos[0],pos[1],pos[2])) n_in++;
+    }
+
+    MyMPI::My_MPI_Sum_Scalar(n_in,world);
+    if(n_in == 0) error->all("Unable to calculate region volume - are you operating on a 2d region?");
+
+    bbox_vol = (extent_xhi - extent_xlo) * (extent_yhi - extent_ylo) * (extent_zhi - extent_zlo);
+    region_vol = static_cast<double>(n_in)/static_cast<double>(n_test) * bbox_vol;
+    return region_vol;
 }

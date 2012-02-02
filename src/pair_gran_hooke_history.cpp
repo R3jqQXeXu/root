@@ -42,9 +42,10 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "error.h"
 #include "fix_rigid.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 #include "mech_param_gran.h"
 #include "compute_pair_gran_local.h"
+#include "myvector.h"
 
 using namespace LAMMPS_NS;
 
@@ -67,6 +68,8 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : PairGran(lmp)
     coeffRestLog = NULL;
     coeffFrict = NULL;
     coeffRollFrict = NULL;
+
+    charVelflag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -137,11 +140,11 @@ void PairGranHookeHistory::compute(int eflag, int vflag,int addflag)
 
   int i,j,ii,jj,inum,jnum,itype,jtype;
   double xtmp,ytmp,ztmp,delx,dely,delz,fx,fy,fz;
-  double radi,radj,radsum,rsq,r,rinv,rsqinv;
+  double radi,radj,radsum,rsq,r,rinv,rsqinv,reff;
   double vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3,wrmag;
   double wr1,wr2,wr3;
   double vtr1,vtr2,vtr3,vrel;
-  double meff,damp,ccel,tor1,tor2,tor3;
+  double meff,damp,ccel,tor1,tor2,tor3,r_torque[3],r_torque_n[3];
   double fn,fs,fs1,fs2,fs3;
   double shrmag,rsht, cri, crj;
   int *ilist,*jlist,*numneigh,**firstneigh;
@@ -243,20 +246,21 @@ void PairGranHookeHistory::compute(int eflag, int vflag,int addflag)
 
         double mi,mj;
         if (rmass) {
-          mi=rmass[i];
-          mj=rmass[j];
+          mi = rmass[i];
+          mj = rmass[j];
         } else {
           itype = type[i];
           jtype = type[j];
-          mi=mass[itype];
-          mj=mass[jtype];
+          mi = mass[itype];
+          mj = mass[jtype];
         }
         if (fr)
         {
-           if(fr->body[i]>=0) double mi=fr->masstotal[fr->body[i]];  
-           if(fr->body[j]>=0) double mj=fr->masstotal[fr->body[j]];  
+           if(fr->body[i] >= 0) mi = fr->masstotal[fr->body[i]];  
+           if(fr->body[j] >= 0) mj = fr->masstotal[fr->body[j]];  
         }
-        meff=mi*mj/(mi+mj);
+
+        meff = mi*mj/(mi+mj);
         if (mask[i] & freeze_group_bit) meff = mj;
         if (mask[j] & freeze_group_bit) meff = mi;
 
@@ -283,7 +287,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag,int addflag)
         touch[jj] = 1;
         shear = &allshear[dnum*jj];
 
-        if (shearupdate)
+        if (shearupdate && addflag)
         {
             shear[0] += vtr1*dt;
             shear[1] += vtr2*dt;
@@ -340,34 +344,42 @@ void PairGranHookeHistory::compute(int eflag, int vflag,int addflag)
         tor2 = rinv * (delz*fs1 - delx*fs3);
         tor3 = rinv * (delx*fs2 - dely*fs1);
 
+        // add rolling friction torque
         if(rollingflag)
         {
+            reff=radi*radj/(radi+radj);
             wrmag = sqrt(wr1*wr1+wr2*wr2+wr3*wr3);
             if (wrmag > 0.)
             {
-                tor1 += rmu*kn*deltan*wr1/wrmag;
-                tor2 += rmu*kn*deltan*wr2/wrmag;
-                tor3 += rmu*kn*deltan*wr3/wrmag;
+                r_torque[0] = rmu*kn*deltan*wr1/wrmag*reff;
+                r_torque[1] = rmu*kn*deltan*wr2/wrmag*reff;
+                r_torque[2] = rmu*kn*deltan*wr3/wrmag*reff;
             }
+            // remove normal (torsion) part of torque
+            r_torque_n[0] = r_torque[0] * delx * rinv;
+            r_torque_n[1] = r_torque[1] * dely * rinv;
+            r_torque_n[2] = r_torque[2] * delz * rinv;
+            vectorSubtract3D(r_torque,r_torque_n,r_torque);
         }
+        else vectorZeroize3D(r_torque);
 
         if(addflag)
         {
             f[i][0] += fx;
             f[i][1] += fy;
             f[i][2] += fz;
-            torque[i][0] -= cri*tor1;
-            torque[i][1] -= cri*tor2;
-            torque[i][2] -= cri*tor3;
+            torque[i][0] -= cri*tor1 + r_torque[0];
+            torque[i][1] -= cri*tor2 + r_torque[1];
+            torque[i][2] -= cri*tor3 + r_torque[2];
         }
 
         if (j < nlocal && addflag) {
           f[j][0] -= fx;
           f[j][1] -= fy;
           f[j][2] -= fz;
-          torque[j][0] -= crj*tor1;
-          torque[j][1] -= crj*tor2;
-          torque[j][2] -= crj*tor3;
+          torque[j][0] -= crj*tor1 + r_torque[0];
+          torque[j][1] -= crj*tor2 + r_torque[1];
+          torque[j][2] -= crj*tor3 + r_torque[2];
         }
 
         if(cpl && !addflag) cpl->add_pair(i,j,fx,fy,fz,tor1,tor2,tor3,shear);
@@ -405,22 +417,23 @@ void PairGranHookeHistory::settings(int narg, char **arg)
 void PairGranHookeHistory::init_substyle()
 {
   int max_type = mpg->max_type();
+
   allocate_properties(max_type);
 
   //Get pointer to the fixes that have the material properties
   
-  Y1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("youngsModulus","property/global","peratomtype",max_type,0)]);
-  v1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("poissonsRatio","property/global","peratomtype",max_type,0)]);
+  Y1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("youngsModulus","property/global","peratomtype",max_type,0));
+  v1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("poissonsRatio","property/global","peratomtype",max_type,0));
 
-  coeffRest1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRestitution","property/global","peratomtypepair",max_type,max_type)]);
-  coeffFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientFriction","property/global","peratomtypepair",max_type,max_type)]);
+  coeffRest1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientRestitution","property/global","peratomtypepair",max_type,max_type));
+  coeffFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientFriction","property/global","peratomtypepair",max_type,max_type));
 
   if(rollingflag)
-    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type)]);
+    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type));
   if(cohesionflag)
-    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
+    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type));
 
-  charVel1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("characteristicVelocity","property/global","scalar",0,0)]);
+  if(charVelflag) charVel1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("characteristicVelocity","property/global","scalar",0,0));
 
   //pre-calculate parameters for possible contact material combinations
   for(int i=1;i< max_type+1; i++)
@@ -448,7 +461,7 @@ void PairGranHookeHistory::init_substyle()
       }
   }
 
-  charVel=charVel1->compute_scalar();
+  if(charVelflag) charVel = charVel1->compute_scalar();
 }
 
 /* ----------------------------------------------------------------------
@@ -481,7 +494,8 @@ void PairGranHookeHistory::allocate_properties(int size)
 
 void PairGranHookeHistory::write_restart_settings(FILE *fp) 
 {
-  fwrite(&dampflag,sizeof(int),1,fp);
+  int writeflag = dampflag + rollingflag * 2;
+  fwrite(&writeflag,sizeof(int),1,fp);
   fwrite(&cohesionflag,sizeof(int),1,fp);
 }
 
@@ -492,9 +506,13 @@ void PairGranHookeHistory::write_restart_settings(FILE *fp)
 void PairGranHookeHistory::read_restart_settings(FILE *fp) 
 {
   if (comm->me == 0) {
-    fread(&dampflag,sizeof(int),1,fp);
+    int readflag;
+    fread(&readflag,sizeof(int),1,fp);
     fread(&cohesionflag,sizeof(int),1,fp);
+    dampflag = readflag & 1;
+    rollingflag = readflag & 2;
   }
   MPI_Bcast(&dampflag,1,MPI_INT,0,world);
   MPI_Bcast(&cohesionflag,1,MPI_INT,0,world);
+  MPI_Bcast(&rollingflag,1,MPI_INT,0,world);
 }

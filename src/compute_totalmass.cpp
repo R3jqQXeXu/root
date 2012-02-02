@@ -76,7 +76,7 @@ void ComputeTotalMass::init()
 /* ---------------------------------------------------------------------- */
 
 double ComputeTotalMass ::compute_scalar()
-{/*
+{
   invoked_scalar = update->ntimestep;
   scalar = 0.;//group->mass(igroup);
 
@@ -88,7 +88,7 @@ double ComputeTotalMass ::compute_scalar()
       fprintf(fp,"%d %f %f\n",update->ntimestep,static_cast<double>(update->ntimestep)*update->dt,scalar);
       fclose(fp);
   }
-  return scalar;*/
+  return scalar;
 }
 
 void ComputeTotalMass ::compute_local()

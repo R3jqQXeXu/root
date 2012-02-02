@@ -24,8 +24,8 @@ FixStyle(mesh/gran,FixMeshGran)
 
 #else
 
-#ifndef LMP_FIX_MESHGRAN_H
-#define LMP_FIX_MESHGRAN_H
+#ifndef LMP_FIX_MESH_GRAN_H
+#define LMP_FIX_MESH_GRAN_H
 
 #include "fix.h"
 #include "input.h"
@@ -38,7 +38,8 @@ namespace LAMMPS_NS {
 class FixMeshGran : public Fix {
   friend class FixMoveTri;
   friend class FixTriNeighlist;
-  friend class Input;
+  friend class InputSTL;
+  friend class InputMeshTri;
   friend class DumpSTL;
   friend class DumpMesh;
   friend class FixWallGran;
@@ -55,6 +56,8 @@ class FixMeshGran : public Fix {
   virtual void final_integrate(){}
   virtual void init(){};
   virtual void post_integrate(){}
+  int is_moving() {return STLdata->movingMesh;}
+  inline double curvature(){return curvature_;}
 
   int atom_type_wall;//atom type that is assigned to the wall (to derive the mechanical properties) and thus to all pseudo wall particles
   double Temp_mesh; //wall temperature
@@ -65,13 +68,17 @@ class FixMeshGran : public Fix {
   double ***node;
   int nTri;
 
-  double *force_total;
-  double *torque_total;
   double *p_ref;
 
-  virtual void add_particle_contribution(double*,double*,int,int){}
-
  protected:
+  double force_total[3];
+  double torque_total[3];
+
+  // assume surfaces as one curved face up to an angle of phi = acos(curvature)
+  double curvature_;
+
+  virtual void add_particle_contribution(double*,double*,int,double*,int,int){}
+
   bool analyseStress;
   int iarg;
   double scale_fact,*off_fact, *rot_angle; 
@@ -85,10 +92,7 @@ class FixMeshGran : public Fix {
   int* EDGE_INACTIVE;
   int* CORNER_INACTIVE;
 
-  char* stl_filename;
-  FILE* stl_file;
-  class Input *mystl_input;
-  void calcTriCharacteristics(int nTri,double ***node,double **cK,double ***ogK,double **ogKlen,double ***oKO,double *rK,double *Area,double **facenormal,int **neighfaces,int *contactInactive);
+  void calcTriCharacteristics(int nTri,double ***node,double **cK,double ***ogK,double **ogKlen,double ***oKO,double *rK,double *Area,double &Area_total,double **facenormal,int **neighfaces,int *contactInactive);
   int get_max_index_sharedcorner(int iTri,int &nPrev,int *prevFaces,double *node2check,double ***node,double *rK,int **neighfaces);
 }; //end class
 

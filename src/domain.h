@@ -110,6 +110,11 @@ class Domain : protected Pointers {
   void lamda2x(double *, double *);
   void x2lamda(double *, double *);
   void bbox(double *, double *, double *, double *);
+
+  int is_in_domain(double* pos); 
+  int is_in_subdomain(double* pos); 
+  int is_in_extended_subdomain(double* pos); 
+  int is_periodic_ghost(int i); 
 };
 
 }

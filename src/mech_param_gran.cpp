@@ -26,16 +26,15 @@ See the README file in the top-level LAMMPS directory.
 #include "modify.h"
 #include "mech_param_gran.h"
 #include "error.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 #include "memory.h"
+#include "fix_insert.h"
 #include "fix_pour.h"
 #include "fix_pour_dev.h"
 #include "fix_wall_gran_hooke_history.h"
-#include "fix_meshGran.h"
+#include "fix_mesh_gran.h"
 
 using namespace LAMMPS_NS;
-
-enum{MESHGRAN,XPLANE,YPLANE,ZPLANE,ZCYLINDER};
 
 MechParamGran::MechParamGran(LAMMPS *lmp): Pointers(lmp)
 {
@@ -58,23 +57,31 @@ int MechParamGran::max_type()
   }
 
   //check all fixes of type pour
-  for(int i=0;i<lmp->modify->nfix;i++)
+  for(int i=0;i<modify->nfix;i++)
   {
       
-      if(strncmp(lmp->modify->fix[i]->style,"pour/dev",7)==0||strcmp(lmp->modify->fix[i]->style,"pour/multisphere")==0)
+      if(strncmp(modify->fix[i]->style,"insert",6)==0)
+      {
+          //fprintf(
+          int tp_min=static_cast<FixInsert*>(lmp->modify->fix[i])->min_type();
+          int tp_max=static_cast<FixInsert*>(lmp->modify->fix[i])->max_type();
+          if(tp_min<mintype) mintype=tp_min;
+          if(tp_max>maxtype) maxtype=tp_max;
+      }
+      else if(strncmp(modify->fix[i]->style,"pour/dev",7)==0||strcmp(lmp->modify->fix[i]->style,"pour/multisphere")==0)
       {
           int tp_min=static_cast<FixPourDev*>(lmp->modify->fix[i])->ntype_min;
           int tp_max=static_cast<FixPourDev*>(lmp->modify->fix[i])->ntype_max;
           if(tp_min<mintype) mintype=tp_min;
           if(tp_max>maxtype) maxtype=tp_max;
       }
-      else if(strncmp(lmp->modify->fix[i]->style,"pour",4)==0)
+      else if(strncmp(modify->fix[i]->style,"pour",4)==0)
       {
           int tp=static_cast<FixPour*>(lmp->modify->fix[i])->ntype;
           if(tp<mintype) mintype=tp;
           if(tp>maxtype) maxtype=tp;
       }
-      else if(strncmp(lmp->modify->fix[i]->style,"wall/gran",8)==0)
+      else if(strncmp(modify->fix[i]->style,"wall/gran",8)==0)
       {
           FixWallGran* fwg=static_cast<FixWallGran*>(lmp->modify->fix[i]);
           if(fwg->meshwall)

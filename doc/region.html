@@ -1,5 +1,5 @@
 <HTML>
-<CENTER><A HREF = "http://lammps.sandia.gov">LAMMPS WWW Site</A> - <A HREF = "Manual.html">LAMMPS Documentation</A> - <A HREF = "Section_commands.html#comm">LAMMPS Commands</A> 
+<CENTER><A HREF = "http://www.liggghts.com">LIGGGHTS WWW Site</A> - <A HREF = "Manual.html">LIGGGHTS Documentation</A> - <A HREF = "Section_commands.html#comm">LIGGGHTS Commands</A> 
 </CENTER>
 
 
@@ -17,7 +17,7 @@
 </PRE>
 <UL><LI>ID = user-assigned name for the region 
 
-<LI>style = <I>block</I> or <I>cone</I> or <I>cylinder</I> or <I>plane</I> or <I>prism</I> or <I>sphere</I> or <I>union</I> or <I>intersect</I> 
+<LI>style = <I>block</I> or <I>cone</I> or <I>cylinder</I> or <I>plane</I> or <I>prism</I> or <I>sphere</I> or <I>tetmesh</I> or <I>union</I> or <I>intersect</I> 
 
 <PRE>  <I>block</I> args = xlo xhi ylo yhi zlo zhi
     xlo,xhi,ylo,yhi,zlo,zhi = bounds of block in all dimensions (distance units)
@@ -42,6 +42,11 @@
   <I>sphere</I> args = x y z radius
     x,y,z = center of sphere (distance units)
     radius = radius of sphere (distance units)
+  <I>tetmesh</I> args = filename s offx offy offz phix phiy phiz
+    filename = name of ASCII VTK file containing the VTK tet-mesh data
+    s = scaling factor for the mesh (dimensionless)
+    offx,offy,offz = offset for the mesh (distance units)
+    phix,phiy,phiz = angle of mesh rotation around x-, y-, and z-axis (in grad)
   <I>union</I> args = N reg-ID1 reg-ID2 ...
     N = # of regions to follow, must be 2 or greater
     reg-ID1,reg-ID2, ... = IDs of regions to join together
@@ -165,6 +170,16 @@ between -5 and 5.  Similarly, both xz and yz must be between
 since if the maximum tilt factor is 5 (as in this example), then
 configurations with tilt = ..., -15, -5, 5, 15, 25, ... are all
 equivalent.
+</P>
+<P>For style <I>tetmesh</I>, a tetrahedral mesh can be read from an ASCII VTK file.
+You can apply offset, scaling and rotation to the imported mesh via dedicated keywords.
+If applying more then one of these operations, the offset is applied first 
+and then the geometry is scaled. Then the geometry is rotated around the 
+x-axis first, then around the y-axis, then around the z-axis.
+</P>
+<P>IMPORTANT NOTE: Currently only ASCII VTK containing tetrahedra are
+supported. For periodic boundaries, the mesh is NOT mapped. Instead, a 
+warning is generated if a vertex lies outside the simulation box.
 </P>
 <P>The <I>union</I> style creates a region consisting of the volume of all the
 listed regions combined.  The <I>intersect</I> style creates a region

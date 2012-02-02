@@ -37,7 +37,7 @@ class Set : protected Pointers {
   double dvalue,xvalue,yvalue,zvalue,wvalue,fraction;
   double PI;
 
-  class FixPropertyPerAtom* updFix; 
+  class FixPropertyAtom* updFix; 
   int nUpdValues; 
   double *updValues; 
 

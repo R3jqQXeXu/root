@@ -34,8 +34,8 @@ See the README file in the top-level LAMMPS directory.
 #include "neigh_request.h"
 #include "pair.h"
 #include "math_extra.h"
-#include "fix_propertyGlobal.h"
-#include "fix_propertyPerAtom.h"
+#include "fix_property_global.h"
+#include "fix_property_atom.h"
 #include "respa.h"
 #include "mech_param_gran.h"
 #include "pair_gran.h"
@@ -109,7 +109,7 @@ FixScalarTransportEquation::~FixScalarTransportEquation()
 
 void FixScalarTransportEquation::pre_delete()
 {
-    //unregister property/peratom fixes
+    //unregister property/atom fixes
     if (fix_quantity) modify->delete_fix(quantity_name);
     if (fix_flux) modify->delete_fix(flux_name);
     if (fix_source) modify->delete_fix(source_name);
@@ -146,10 +146,10 @@ void FixScalarTransportEquation::post_create()
   for (int kk=0;kk<9;kk++) fixarg[kk]=new char[30];
 
   if (fix_quantity==NULL) {
-  //register Temp as property/peratom
+  //register Temp as property/atom
     strcpy(fixarg[0],quantity_name);
     fixarg[1]="all";
-    fixarg[2]="property/peratom";
+    fixarg[2]="property/atom";
     strcpy(fixarg[3],quantity_name);
     fixarg[4]="scalar"; 
     fixarg[5]="yes";    
@@ -157,14 +157,14 @@ void FixScalarTransportEquation::post_create()
     fixarg[7]="no";    
     sprintf(fixarg[8],"%f",quantity_0);
     modify->add_fix(9,fixarg);
-    fix_quantity=static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property(quantity_name,"property/peratom","scalar",0,0)]);
+    fix_quantity=static_cast<FixPropertyAtom*>(modify->find_fix_property(quantity_name,"property/atom","scalar",0,0));
   }
 
   if (fix_flux==NULL){
-    //register heatFlux as property/peratom
+    //register heatFlux as property/atom
     strcpy(fixarg[0],flux_name);
     fixarg[1]="all";
-    fixarg[2]="property/peratom";
+    fixarg[2]="property/atom";
     strcpy(fixarg[3],flux_name);
     fixarg[4]="scalar"; 
     fixarg[5]="yes";    
@@ -172,11 +172,11 @@ void FixScalarTransportEquation::post_create()
     fixarg[7]="yes";    
     fixarg[8]="0.";     
     modify->add_fix(9,fixarg);
-    fix_flux=static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property(flux_name,"property/peratom","scalar",0,0)]);
+    fix_flux=static_cast<FixPropertyAtom*>(modify->find_fix_property(flux_name,"property/atom","scalar",0,0));
   }
 
   if (fix_source==NULL){
-    //register heatSource as property/peratom
+    //register heatSource as property/atom
     strcpy(fixarg[0],source_name);
     fixarg[1]="all";
     strcpy(fixarg[3],source_name);
@@ -187,7 +187,7 @@ void FixScalarTransportEquation::post_create()
     fixarg[7]="no";    
     fixarg[8]="0.";     
     modify->add_fix(9,fixarg);
-    fix_source=static_cast<FixPropertyPerAtom*>(modify->fix[modify->find_fix_property(source_name,"property/peratom","scalar",0,0)]);
+    fix_source=static_cast<FixPropertyAtom*>(modify->find_fix_property(source_name,"property/atom","scalar",0,0));
   }
 
   delete []fixarg;
@@ -214,7 +214,7 @@ void FixScalarTransportEquation::init()
       if(capacity) delete []capacity;
       capacity = new double[max_type+1];
 
-      fix_capacity = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property(capacity_name,"property/global","peratomtype",max_type,0)]);
+      fix_capacity = static_cast<FixPropertyGlobal*>(modify->find_fix_property(capacity_name,"property/global","peratomtype",max_type,0));
 
       //pre-calculate parameters for possible contact material combinations
       for(int i=1;i< max_type+1; i++)

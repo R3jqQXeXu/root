@@ -30,8 +30,9 @@ See the README file in the top-level LAMMPS directory.
 #include "comm.h"
 #include "myvector.h"
 #include "fix_cfd_coupling.h"
-#include "fix_propertyGlobal.h"
-#include "fix_propertyPerAtom.h"
+#include "fix.h"
+#include "fix_property_global.h"
+#include "fix_property_atom.h"
 #include "fix_cfd_coupling.h"
 #include "cfd_regionmodel.h"
 #include "style_cfd_datacoupling.h"
@@ -47,9 +48,9 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
   
-  if(comm->me == 0 && strncmp(arg[2],"couple/cfd",10)) fprintf(screen,"INFO: Some error/warning messages may appear as fix couple/cfd messages\n");
+  if(comm->me == 0 && strncmp(arg[2],"couple/cfd",10)) error->info("Some error/warning messages may appear as fix couple/cfd messages\n");
 
-  int master_flag = 1;
+  master_flag = 1;
   for(int ii=0;ii<modify->nfix;ii++)
   {
       if(strncmp(modify->fix[ii]->style,"couple/cfd",10) == 0) master_flag = 0;
@@ -116,6 +117,8 @@ FixCfdCoupling::FixCfdCoupling(LAMMPS *lmp, int narg, char **arg) :
   grow_();
 
   ts_create = update->ntimestep;
+
+  couple_this = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -138,8 +141,6 @@ void FixCfdCoupling::grow_()
 
 FixCfdCoupling::~FixCfdCoupling()
 {
-	
-	memory->destroy_2d_double_array(array_atom);
 	memory->destroy_2d_char_array(pullnames);
 	memory->destroy_2d_char_array(pulltypes);
 	memory->destroy_2d_char_array(pushnames);
@@ -157,7 +158,7 @@ void FixCfdCoupling::post_create()
 int FixCfdCoupling::setmask()
 {
   int mask = 0;
-  if(nevery) mask |= END_OF_STEP;
+  if(master_flag && couple_nevery) mask |= END_OF_STEP;
   mask |= POST_FORCE_RESPA;
   mask |= MIN_POST_FORCE;
   return mask;
@@ -193,7 +194,6 @@ void FixCfdCoupling::init()
       for(int i = 0; i < nvalues_max; i++)
       pushinvoked[i] = pullinvoked[i] = 0;
   }
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -209,6 +209,7 @@ void FixCfdCoupling::setup(int vflag)
   }
 
   if(update->ntimestep == 0) end_of_step();
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -278,7 +279,6 @@ void FixCfdCoupling::check_datatransfer()
 void FixCfdCoupling::add_pull_property(char *name,char *type)
 {
    master->add_pull_prop(name,type);
-
 }
 
 void FixCfdCoupling::add_pull_prop(char *name,char *type)
@@ -338,7 +338,7 @@ void* FixCfdCoupling::find_property(int push,char *name,char *type,int &len1,int
     void *ptr = NULL;
     int flag = 0;
 
-    //check existence
+    // check existence of property in registry
     if(push)
     {
         for(int i = 0; i < npush; i++)
@@ -352,35 +352,41 @@ void* FixCfdCoupling::find_property(int push,char *name,char *type,int &len1,int
 
     if(!flag) error->all("Inconsistency in FixCfdCoupling::find_property");
 
+    // possiblility 1
+    // may be atom property - look up in atom class
     if(atom->extract(name)) return atom->extract(name);
 
-    int ifix1 = -1, ifix2 = -1;
+    // possiblility 2
+    // may be fix property per atom - look up in modify class
+
+    Fix *fix1 = NULL, *fix2 = NULL;
 
     if(strcmp(type,"scalar") == 0 || strcmp(type,"vector") == 0)
-       ifix1 = modify->find_fix_property(name,"property/peratom",type,0,0,false);
+    {
+       fix1 = modify->find_fix_property(name,"property/atom",type,0,0,false);
+       if(fix1 && strcmp(type,"scalar") == 0) return (void*) static_cast<FixPropertyAtom*>(fix1)->vector_atom;
+       if(fix1 && strcmp(type,"vector") == 0) return (void*) static_cast<FixPropertyAtom*>(fix1)->array_atom;
+    }
     else if(strcmp(type,"globalscalar") == 0)
-       ifix2 = modify->find_fix_property(name,"property/global","scalar",0,0,false);
+       fix2 = modify->find_fix_property(name,"property/global","scalar",0,0,false);
     else if(strcmp(type,"globalvector") == 0)
-       ifix2 = modify->find_fix_property(name,"property/global","vector",0,0,false);
+       fix2 = modify->find_fix_property(name,"property/global","vector",0,0,false);
     else if(strcmp(type,"globalmatrix") == 0)
-       ifix2 = modify->find_fix_property(name,"property/global","matrix",0,0,false);
+       fix2 = modify->find_fix_property(name,"property/global","matrix",0,0,false);
 
-    if(ifix1 > -1 && strcmp(type,"scalar") == 0) ptr = (void*) static_cast<FixPropertyPerAtom*>(modify->fix[ifix1])->vector_atom;
-    if(ifix1 > -1 && strcmp(type,"vector") == 0) ptr = (void*) static_cast<FixPropertyPerAtom*>(modify->fix[ifix1])->array_atom;
-
-    if(ifix2 > -1 && strcmp(type,"globalvector") == 0)
+    if(fix2 && strcmp(type,"globalvector") == 0)
     {
-        ptr = (void*) static_cast<FixPropertyGlobal*>(modify->fix[ifix2])->values;
-        len1 = static_cast<FixPropertyGlobal*>(modify->fix[ifix2])->nvalues;
+        len1 = static_cast<FixPropertyGlobal*>(fix2)->nvalues;
+        return (void*) static_cast<FixPropertyGlobal*>(fix2)->values;
     }
 
-    if(ifix2 > -1 && strcmp(type,"globalarray") == 0)
+    if(fix2 && strcmp(type,"globalarray") == 0)
     {
-        ptr = (void*) static_cast<FixPropertyGlobal*>(modify->fix[ifix2])->array;
-        len1  = static_cast<FixPropertyGlobal*>(modify->fix[ifix2])->size_array_rows;
-        len2  = static_cast<FixPropertyGlobal*>(modify->fix[ifix2])->size_array_cols;
+        len1  = static_cast<FixPropertyGlobal*>(fix2)->size_array_rows;
+        len2  = static_cast<FixPropertyGlobal*>(fix2)->size_array_cols;
+        return (void*) static_cast<FixPropertyGlobal*>(fix2)->array;
     }
-    return ptr;
+    return NULL;
 }
 
 /* ---------------------------------------------------------------------- */

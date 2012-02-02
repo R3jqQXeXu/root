@@ -28,50 +28,61 @@ FixStyle(particletemplate/sphere,FixTemplateSphere)
 #define LMP_FIX_TEMPLATE_SPHERE_H
 
 #include "fix.h"
-
-enum{RAN_STYLE_CONSTANT_FTS,RAN_STYLE_UNIFORM_FTS,RAN_STYLE_GAUSSIAN_FTS};
+#include "probability_distribution.h"
 
 namespace LAMMPS_NS {
 
 class FixTemplateSphere : public Fix {
  public:
+
   FixTemplateSphere(class LAMMPS *, int, char **);
   ~FixTemplateSphere();
+
+  // inherited from Fix
+  virtual void post_create(){}
+  virtual int setmask();
   void write_restart(FILE *);
   void restart(char *);
 
-  virtual int setmask();
+  // access to protected properties
   virtual double volexpect();           
   virtual double massexpect();          
-  double max_rad();
+  virtual double max_rad();
+  virtual double max_r_bound();
+  virtual int number_spheres();
+  int type();
+  class Region *region();
 
-  virtual void randomize();              
-  class ParticleToInsert* pti;
+  // single particle generation, used by fix pour/dev
+  virtual void randomize_single();    
+  class ParticleToInsert *pti;
+
+  // many particle generation, used by fix insert commands
+  virtual void init_ptilist(int);
+  virtual void delete_ptilist();
+  virtual void randomize_ptilist(int,int);
+  int n_pti_max;
+  class ParticleToInsert **pti_list;
+
+  virtual void finalize_insertion() {}
 
  protected:
-  class RanPark *random;
-  int seed;
-  double PI;
+
   int iarg;
 
-  //properties of particle template
-  int nspheres;       
-  double **x_sphere;   
-  double **x_sphere_b; 
-  double *r_sphere;   
+  class Region *reg;
+  class FixRegionVariable *reg_var;
 
+  // random generator
+  class RanPark *random;
+  int seed;
+
+  // properties of particle template
   int atom_type;
-  double density1;          // = min val for uniform, µ for gauss
-  double density2;          // = max val for uniform, sigma for gauss
-  int density_randstyle;
-  double volume;
-  double mass;
-  int radius_randstyle;
-  double radius2;               //= ratio max/min for uniform, sigma for gauss
-
-  virtual void randomize_r();
-  virtual void randomize_dens();
-
+  class LMP_PROBABILITY_NS::PDF *pdf_radius;   
+  class LMP_PROBABILITY_NS::PDF *pdf_density;
+  double volume_expect;
+  double mass_expect;
 };
 
 }

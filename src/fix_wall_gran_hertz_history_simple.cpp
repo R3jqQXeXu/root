@@ -37,7 +37,7 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "error.h"
 #include "fix_rigid.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 #include "mech_param_gran.h"
 
 using namespace LAMMPS_NS;

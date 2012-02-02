@@ -1214,3 +1214,64 @@ void Input::units()
     error->all("Units command after simulation box is defined");
   update->set_units(arg[0]);
 }
+
+/* ----------------------------------------------------------------------
+   parse a non-lammps file
+------------------------------------------------------------------------- */
+
+void Input::parse_nonlammps()
+{
+  // make a copy to work on
+
+  strcpy(copy,line);
+
+  // strip any # comment by resetting string terminator
+  // do not strip # inside double quotes
+
+  //if (me==0) fprintf(screen,"parsing line %s",copy);
+
+  int level = 0;
+  char *ptr = copy;
+  while (*ptr) {
+    if (*ptr == '#' && level == 0) {
+      *ptr = '\0';
+      break;
+    }
+    if (*ptr == '"') {
+      if (level == 0) level = 1;
+      else level = 0;
+    }
+    ptr++;
+  }
+
+  // point arg[] at each arg
+  // treat text between double quotes as one arg
+  // insert string terminators in copy to delimit args
+
+  narg = 0;
+  maxarg = DELTA;
+  arg = (char **) memory->srealloc(arg,maxarg*sizeof(char *),"Input:arg");
+  arg[narg] = strtok(copy," \t\n\r\f");
+  if (arg[narg]) narg++;
+
+  while (1) {
+    if (narg == maxarg) {
+      maxarg += DELTA;
+      arg = (char **) memory->srealloc(arg,maxarg*sizeof(char *),"Input:arg");
+    }
+    arg[narg] = strtok(NULL," \t\n\r\f");
+    if (arg[narg] && arg[narg][0] == '\"') {
+      arg[narg] = &arg[narg][1];
+      if (arg[narg][strlen(arg[narg])-1] == '\"')
+	arg[narg][strlen(arg[narg])-1] = '\0';
+      else {
+	arg[narg][strlen(arg[narg])] = ' ';
+	ptr = strtok(arg[narg],"\"");
+	if (ptr == NULL) error->all("Unbalanced quotes in input line");
+      }
+    }
+    if (arg[narg]) narg++;
+    else break;
+  }
+
+}

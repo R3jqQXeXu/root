@@ -74,6 +74,7 @@ class FixCfdCoupling : public Fix {
  protected:
   int couple_this;
   class FixCfdCoupling *master;
+  int master_flag;
   int iarg;
 
  protected:

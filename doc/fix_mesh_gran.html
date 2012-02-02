@@ -1,22 +1,25 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 <HTML>
 <HEAD>
-	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.1  (Unix)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.2  (Unix)">
 	<META NAME="CREATED" CONTENT="0;0">
-	<META NAME="CHANGED" CONTENT="20101019;13295500">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
+	<META NAME="CHANGED" CONTENT="20111021;11331200">
+	<META NAME="CHANGEDBY" CONTENT="ckloss ">
 	<STYLE TYPE="text/css">
 	<!--
 		H3.western { font-family: "Albany", sans-serif }
 		H3.cjk { font-family: "HG Mincho Light J" }
 		H3.ctl { font-family: "Arial Unicode MS" }
+		PRE.cjk { font-family: "DejaVu Sans", monospace }
 	-->
 	</STYLE>
 </HEAD>
 <BODY LANG="en-US" DIR="LTR">
-<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A HREF="http://www.liggghts.com/"><FONT FACE="Liberation Serif, serif">LIGGGHTS
-WWW Site</FONT></A> <FONT FACE="Liberation Serif, serif">- <A HREF="Manual.html">LIGGGHTS
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><FONT FACE="Liberation Serif, serif"><A HREF="http://www.liggghts.com/">LIGGGHTS
+WWW Site</A></FONT> <FONT FACE="Liberation Serif, serif">- <A HREF="Manual.html">LIGGGHTS
 Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 <A HREF="Section_commands.html#comm">LIGGGHTS Commands</A></FONT> 
 </P>
@@ -25,7 +28,7 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 </H3>
 <P><B>Syntax:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz (conveyor conveyor-values)</PRE>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix ID group-ID mesh/gran filename walltype scalefactor xoff yoff zoff phix phiy phiz (conveyor conveyor-values)</PRE>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">ID, group-ID are documented in <A HREF="fix.html">fix</A>
 	command 
@@ -44,19 +47,18 @@ Documentation</A></FONT> <FONT FACE="Liberation Serif, serif">-
 	<LI><P STYLE="margin-bottom: 0in">phix, phiy, phiz = Angle of
 	geometry rotation around x-, y-, and z-axis (in grad) 
 	</P>
-	<LI><P STYLE="margin-bottom: 0in">conveyor, temperature = optional
-	keywords for conveyor belt / heat transfer model<BR><I>conveyor</I>
-	values = vx vy vz</P>
+	<LI><P STYLE="margin-bottom: 0in">conveyor, rotation, temperature,
+	curvature = optional keywords for conveyor belt / heat transfer
+	model<BR><I>conveyor</I> values = vx vy vz</P>
 </UL>
 <UL>
-	<PRE>    vx = x-velocity of conveyor belt (velocity units) 
+	<PRE CLASS="western">    vx = x-velocity of conveyor belt (velocity units) 
     vy = y-velocity of conveyor belt (velocity units) 
-    vz = z-velocity of conveyor belt (velocity units) 
-<I>temperature </I>value = T0<I><BR>  </I>  T0 = Temperature of the wall (temperature units)  </PRE>
+    vz = z-velocity of conveyor belt (velocity units) <BR><I>rotation</I> values = px py pz rx ry rz omega<BR>    px py pz = origin for rotation axis (distance units) <BR>    rx ry rz = axis vector for rotation (distance units) <BR>    omega = rotational velocity (rad/time units) <BR>curvature<I> </I>value = c<BR>    c = maximum angle between mesh faces belonging to the same surface (in °) <BR><I>temperature </I>value = T0<BR>    T0 = Temperature of the wall (temperature units)  </PRE>
 </UL>
 <P><B>Examples:</B> 
 </P>
-<PRE STYLE="margin-bottom: 0.2in">fix cad all mesh/gran indenter.stl 1 1.0 0. 0. 0. 0. 0. 0.</PRE><P>
+<PRE CLASS="western" STYLE="margin-bottom: 0.2in">fix cad all mesh/gran indenter.stl 1 1.0 0. 0. 0. 0. 0. 0.</PRE><P>
 <B>LIGGGHTS vs. LAMMPS Info: </B>
 </P>
 <P STYLE="margin-bottom: 0.2in; font-weight: normal">This command is
@@ -64,8 +66,9 @@ not available in LAMMPS.</P>
 <P><B>Description:</B> 
 </P>
 <P>This fix allows the import of complex wall geometry for granular
-simulations from CAD by means of ASCII STL files. You can apply
-offset, scaling and rotation to the imported STL file. 
+simulations from CAD by means of ASCII STL files or legacy ASCII VTK
+files. You can apply offset, scaling and rotation to the imported
+mesh. 
 </P>
 <P>If applying more then one of these operations, the offset is
 applied first and then the geometry is scaled. Then the geometry is
@@ -76,20 +79,27 @@ the z-axis.
 material is identified with the <I>walltype. </I>If multiple walls
 with different materials are desired, the respective walls must be
 imported with different fix mesh/gran commands.</P>
-<P>IMPORTANT NOTE: For periodic boundaries, the STL mesh is NOT
-mapped. Instead, an error is generated if a vertex lies outside the
+<P>IMPORTANT NOTE: For periodic boundaries, the mesh is NOT mapped.
+Instead, a warning is generated if a vertex lies outside the
 simulation box.</P>
 <P>With the optional conveyor model, you can specify the imported
 mesh as conveyor belt. The velocity direction for each mesh face is
 given by the projection of the conveyor belt velocity parallel to the
 mesh face, the velocity magnitude for each mesh face is equal to the
 conveyor belt velocity. This ensures the model makes sense also in
-case the mesh is curved.</P>
+case the mesh is curved. Likewise, the optional rotation model mimics
+rotational motion of the mesh (e.g. for modeling a shear cell)</P>
 <P>With the temperature keyword, you can define a constant
 temperature for a mesh in conjunction with heat conduction via <A HREF="fix_heat_gran.html">fix
-heat/gran.</A>  Note that the actual calculation of the heat transfer
+heat/gran.</A> Note that the actual calculation of the heat transfer
 happens only if you use the mesh in conjunction with a granular wall,
 see <A HREF="fix_wall_gran.html">fix wall/gran.</A></P>
+<P>The curvature keyword lets you specify up to which angle between
+two triangles the triangles should be treated as belonging to the
+same surface (e.g. useful for bends). This angle is used to decide if
+(a) contact history is copied from one triangle to the other as the
+contact point proceeds and (b) if edge and corner  interaction is
+calculated.</P>
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
 </P>
 <P><FONT FACE="Liberation Serif, serif">This fix writes the STL data
@@ -116,7 +126,7 @@ mesh and the conveyor belt feature.</P>
 mesh/gran/stressanalysis</A>, <A HREF="fix_mesh_gran_6dof.html">fix
 mesh/gran/6dof</A> 
 </P>
-<P><B>Default:</B> none 
+<P><B>Default:</B> c = 0° 
 </P>
 </BODY>
 </HTML>

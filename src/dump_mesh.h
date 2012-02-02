@@ -35,6 +35,7 @@ enum{
     DUMP_ID = 2,
     DUMP_WEAR = 4,
     DUMP_VEL = 8,
+    DUMP_STRESSCOMPONENTS = 16,
     };
 
 namespace LAMMPS_NS {

@@ -35,7 +35,7 @@
 #include "math_extra.h"
 #include "error.h"
 #include "modify.h" 
-#include "fix_propertyPerAtom.h" 
+#include "fix_property_atom.h" 
 
 using namespace LAMMPS_NS;
 
@@ -272,27 +272,27 @@ void Set::command(int narg, char **arg)
 	error->all("Invalid value in set command");
       topology(IMPROPER);
       iarg += 2;
-    } else if (strcmp(arg[iarg],"property/peratom") == 0) { 
-      if (iarg+1 > narg) error->all("Illegal set command for property/peratom");
+    } else if (strcmp(arg[iarg],"property/atom") == 0 || strcmp(arg[iarg],"property/peratom") == 0) { 
+      if (iarg+1 > narg) error->all("Illegal set command for property/atom");
       int n = strlen(arg[iarg+1]) + 1;
       char* variablename = new char[n];
       strcpy(variablename,arg[iarg+1]);
       //find the fix (there should be only one fix with the same variablename, this is ensured by the fix itself)
-      updFix=NULL;
+      updFix = NULL;
       for (int ifix = 0; ifix < (lmp->modify->nfix); ifix++){
-        if ((strcmp(lmp->modify->fix[ifix]->style,"property/peratom") == 0) && (strcmp(((FixPropertyPerAtom*)(lmp->modify->fix[ifix]))->variablename,variablename)==0) ){
-            updFix=(FixPropertyPerAtom*)(lmp->modify->fix[ifix]);
+        if ((strcmp(lmp->modify->fix[ifix]->style,"property/atom") == 0) && (strcmp(((FixPropertyAtom*)(lmp->modify->fix[ifix]))->variablename,variablename)==0) ){
+            updFix=(FixPropertyAtom*)(lmp->modify->fix[ifix]);
         }
       }
       if (updFix==NULL) error->all("Could not identify the per-atom property you want to set");
 
       nUpdValues=updFix->nvalues;
-      if (nUpdValues != (narg-iarg-2) ) error->all("The number of values for the set property/peratom does not match the number needed");
+      if (nUpdValues != (narg-iarg-2) ) error->all("The number of values for the set property/atom does not match the number needed");
       updValues = new double[nUpdValues];
       for(int j=0;j<nUpdValues ;j++) updValues[j]=atof(arg[iarg+1+1+j]);
       set(PROPERTYPERATOM);
       iarg += (2+nUpdValues);
-    }else error->all("Illegal set command");
+    } else error->all("Illegal set command");
 
     // statistics
 
@@ -399,7 +399,7 @@ void Set::set(int keyword)
       // set desired per-atom property
       }else if (keyword == PROPERTYPERATOM) {
 
-	    if (updFix->vectorStyle) for (int m = 0; m < nUpdValues; m++) updFix->array_atom[i][m] = updValues[m];
+	    if (updFix->data_style) for (int m = 0; m < nUpdValues; m++) updFix->array_atom[i][m] = updValues[m];
         else updFix->vector_atom[i]=updValues[0];
 
       } else if (keyword == DENSITY) {

@@ -7,10 +7,10 @@ SHELL = /bin/sh
 # specify flags and libraries needed for your compiler
 
 CC =		mpic++
-CCFLAGS =	-g -O -fPIC
+CCFLAGS =	-g -O
 DEPFLAGS =	-M
 LINK =		mpic++
-LINKFLAGS =	-g -O -fPIC
+LINKFLAGS =	-g -O
 LIB =           
 ARCHIVE =	ar
 ARFLAGS =	-rc

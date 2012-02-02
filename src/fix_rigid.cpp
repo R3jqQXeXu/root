@@ -47,8 +47,7 @@ FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
   //not working correctly for 2d
   if(domain->dimension == 2) error->warning("Fix rigid should not be used for 2d simulations - inertia is for 3d systems");
 
-  if (strcmp(arg[3],"pseudo") == 0) return;
-  if (strcmp(this->style,"rigid")!=0) return;
+  if (narg > 3 && strcmp(arg[3],"pseudo") == 0) return; 
 
   int i,ibody;
 
@@ -69,6 +68,8 @@ FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
   qorient = NULL;
   grow_arrays(atom->nmax);
   atom->add_callback(0);
+
+  if (strcmp(this->style,"rigid")) return;  
 
   // parse args for rigid body specification
   // set nbody and body[i] for each atom

@@ -41,6 +41,16 @@ using namespace LAMMPS_NS;
 
 #define LMP_GROW_DELTA 11000
 
+/* ---------------------------------------------------------------------- */
+
+int liggghts_get_maxtag(void *ptr)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+  return lmp->atom->tag_max();
+}
+
+/* ---------------------------------------------------------------------- */
+
 void* locate_coupling_fix(void *ptr)
 {
     LAMMPS *lmp = (LAMMPS *) ptr;
@@ -56,6 +66,8 @@ void* locate_coupling_fix(void *ptr)
     return ((void*)lmp->modify->fix[ifix]);
 }
 
+/* ---------------------------------------------------------------------- */
+
 void data_liggghts_to_of(char *name,char *type,void *ptr,void *&data)
 {
     LAMMPS *lmp = (LAMMPS *) ptr;
@@ -63,12 +75,16 @@ void data_liggghts_to_of(char *name,char *type,void *ptr,void *&data)
     fcfd->push(name,type,data);
 }
 
+/* ---------------------------------------------------------------------- */
+
 void data_of_to_liggghts(char *name,char *type,void *ptr,void *data)
 {
     LAMMPS *lmp = (LAMMPS *) ptr;
     FixCfdCoupling* fcfd = (FixCfdCoupling*)locate_coupling_fix(ptr);
     fcfd->pull(name,type,data);
 }
+
+/* ---------------------------------------------------------------------- */
 
 void update_rm(void *ptr)
 {
@@ -80,6 +96,8 @@ void update_rm(void *ptr)
     lmp->error->all("Region model update not implemented aborting.");
 }
 
+/* ---------------------------------------------------------------------- */
+
 void allocate_external_int(int    **&data, int len2,int len1,int    initvalue,void *ptr)
 {
     LAMMPS *lmp = (LAMMPS *) ptr;
@@ -87,12 +105,16 @@ void allocate_external_int(int    **&data, int len2,int len1,int    initvalue,vo
     fcfd->allocate_external(data,len2,len1,initvalue);
 }
 
+/* ---------------------------------------------------------------------- */
+
 void allocate_external_double(double **&data, int len2,int len1,double initvalue,void *ptr)
 {
     LAMMPS *lmp = (LAMMPS *) ptr;
     FixCfdCoupling* fcfd = (FixCfdCoupling*)locate_coupling_fix(ptr);
     fcfd->allocate_external(data,len2,len1,initvalue);
 }
+
+/* ---------------------------------------------------------------------- */
 
 void check_datatransfer(void *ptr)
 {

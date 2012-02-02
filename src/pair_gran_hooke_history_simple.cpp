@@ -32,7 +32,7 @@ See the README file in the top-level LAMMPS directory.
 #include "memory.h"
 #include "modify.h"
 #include "error.h"
-#include "fix_propertyGlobal.h"
+#include "fix_property_global.h"
 #include "mech_param_gran.h"
 
 using namespace LAMMPS_NS;
@@ -41,7 +41,7 @@ using namespace LAMMPS_NS;
 
 PairGranHookeHistorySimple::PairGranHookeHistorySimple(LAMMPS *lmp) : PairGranHookeHistory(lmp)
 {
-    k_n1 = k_t1 = gamma_n1 = gamma_t1 = NULL;
+    k_n = k_t = gamma_n = gamma_t = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -60,17 +60,39 @@ void PairGranHookeHistorySimple::init_substyle()
 
   //Get pointer to the fixes that have the material properties
 
-  k_n1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("kn","property/global","peratomtypepair",max_type,max_type)]);
-  k_t1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("kt","property/global","peratomtypepair",max_type,max_type)]);
-  gamma_n1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("gamman","property/global","peratomtypepair",max_type,max_type)]);
-  gamma_t1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("gammat","property/global","peratomtypepair",max_type,max_type)]);
+  k_n1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("kn","property/global","peratomtypepair",max_type,max_type));
+  k_t1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("kt","property/global","peratomtypepair",max_type,max_type));
 
-  coeffFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientFriction","property/global","peratomtypepair",max_type,max_type)]);
+  // can be either absolute damping value or relative (which is multiplied by mass afterwards)
+
+  // first test if user specified a valid property combination
+  Fix *f1,*f2,*f3,*f4;
+  f1 = modify->find_fix_property("gamman","property/global","peratomtypepair",0,0,false);
+  f2 = modify->find_fix_property("gammat","property/global","peratomtypepair",0,0,false);
+  f3 = modify->find_fix_property("gamman_abs","property/global","peratomtypepair",0,0,false);
+  f4 = modify->find_fix_property("gammat_abs","property/global","peratomtypepair",0,0,false);
+
+  // decide for damp_massflag, check if properties have the right length
+  if(f1 && f2 && !f3 && !f4)
+  {
+    damp_massflag = 1;
+    gamma_n1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("gamman","property/global","peratomtypepair",max_type,max_type));
+    gamma_t1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("gammat","property/global","peratomtypepair",max_type,max_type));
+  }
+  else if(!f1 && !f2 && f3 && f4)
+  {
+    damp_massflag = 0;
+    gamma_n1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("gamman_abs","property/global","peratomtypepair",max_type,max_type));
+    gamma_t1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("gammat_abs","property/global","peratomtypepair",max_type,max_type));
+  }
+  else error->all("Pair gran/hooke/history/simple: Must provide either 'gamman' and 'gammat' or 'gamman_abs' and 'gammat_abs' ");
+
+  coeffFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientFriction","property/global","peratomtypepair",max_type,max_type));
   if(rollingflag)
-    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type)]);
+    coeffRollFrict1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("coefficientRollingFriction","property/global","peratomtypepair",max_type,max_type));
 
   if(cohesionflag)
-    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type)]);
+    cohEnergyDens1=static_cast<FixPropertyGlobal*>(modify->find_fix_property("cohesionEnergyDensity","property/global","peratomtypepair",max_type,max_type));
 
   //pre-calculate parameters for possible contact material combinations
   for(int i=1;i< max_type+1; i++)
@@ -127,8 +149,17 @@ inline void PairGranHookeHistorySimple::deriveContactModelParams(int &ip, int &j
 {
     kn = k_n[itype][jtype];
     kt = k_t[itype][jtype];
-    gamman = meff*gamma_n[itype][jtype];
-    gammat = meff*gamma_t[itype][jtype];
+
+    if(damp_massflag)
+    {
+        gamman = meff*gamma_n[itype][jtype];
+        gammat = meff*gamma_t[itype][jtype];
+    }
+    else
+    {
+        gamman = gamma_n[itype][jtype];
+        gammat = gamma_t[itype][jtype];
+    }
 
     xmu=coeffFrict[itype][jtype];
     if(rollingflag)rmu=coeffRollFrict[itype][jtype];

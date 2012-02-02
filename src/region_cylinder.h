@@ -28,6 +28,7 @@ class RegCylinder : public Region {
   friend class FixPour;
   friend class FixPourLegacy; 
   friend class FixPourDev; 
+  friend class FixPourDevRegionupdate; 
 
  public:
   RegCylinder(class LAMMPS *, int, char **);

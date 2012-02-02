@@ -21,7 +21,7 @@ See the README file in the top-level LAMMPS directory.
 #include "math.h"
 #include "stdlib.h"
 #include "string.h"
-#include "fix_meshGran_analyze.h"
+#include "fix_mesh_gran_stressanalysis.h"
 #include "atom.h"
 #include "atom_vec.h"
 #include "force.h"
@@ -36,14 +36,13 @@ See the README file in the top-level LAMMPS directory.
 #include "neighbor.h"
 #include "triSpherePenetration.h"
 #include "stl_tri.h"
-#include "mpi.h"
-#include "fix_propertyGlobal.h"
+#include "mympi.h"
+#include "fix_property_global.h"
+#include "math_extra_liggghts.h"
 
 using namespace LAMMPS_NS;
 
 #define EPSILON 0.001
-
-#define FABS(a) ((a) > 0 ? (a) : (-a))
 
 /* ---------------------------------------------------------------------- */
 
@@ -70,14 +69,14 @@ FixMeshGranAnalyze::FixMeshGranAnalyze(LAMMPS *lmp, int narg, char **arg) :
           iarg++;
           if(strcmp(arg[iarg],"yes") == 0) finnie_flag = 1;
           else if(strcmp(arg[iarg],"no") == 0) finnie_flag = 0;
-          else error->all("Illegal fix mesh/gran/stressanalysis command, expecting 'yes' or 'no'");
+          else error->all("Illegal fix mesh/gran/stressanalysis command, expecting 'yes' or 'no' as finnie arguments");
           iarg++;
           hasargs = true;
       }
       else if(strcmp(style,"mesh/gran/stressanalysis") == 0) error->all("Illegal fix mesh/gran/stressanalysis command, unknown keyword");
    }
 
-   if(finnie_flag) error->warning("You are using the wear model, which is currently in beta mode!");
+   if(finnie_flag && comm->me == 0) error->warning("You are using the wear model, which is currently in beta mode!");
 }
 
 FixMeshGranAnalyze::~FixMeshGranAnalyze()
@@ -89,7 +88,7 @@ FixMeshGranAnalyze::~FixMeshGranAnalyze()
 
 int FixMeshGranAnalyze::setmask()
 {
-  int mask = 0;
+  int mask = FixMeshGran::setmask();
   mask |=PRE_FORCE;
   mask |=FINAL_INTEGRATE;
   return mask;
@@ -100,51 +99,56 @@ int FixMeshGranAnalyze::setmask()
 void FixMeshGranAnalyze::init()
 {
     if(finnie_flag)
-        k_finnie = static_cast<FixPropertyGlobal*>(modify->fix[modify->find_fix_property("k_finnie","property/global","peratomtypepair",atom->ntypes,atom->ntypes)])->get_array();
+        k_finnie = static_cast<FixPropertyGlobal*>(modify->find_fix_property("k_finnie","property/global","peratomtypepair",atom->ntypes,atom->ntypes))->get_array();
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixMeshGranAnalyze::pre_force(int vflag)
 {
-    force_total[0]=0.;  force_total[1]=0.;  force_total[2]=0.;
-    torque_total[0]=0.; torque_total[1]=0.; torque_total[2]=0.;
+    vectorZeroize3D(force_total);
+    vectorZeroize3D(torque_total);
 
     for(int i=0;i<nTri;i++)
         for(int j=0;j<3;j++)
-            STLdata->f_tri[i][j]=0.;
-
+            vectorZeroize3D(STLdata->f_tri[i]);
 }
 
 /* ---------------------------------------------------------------------- */
 //   called during wall force calc
 /* ---------------------------------------------------------------------- */
 
-void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPoint,int iTri,int ip)
+void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPoint,int iTri,double *v_wall,int ip,int new_contact)
 {
-    double E,c[3],cmag,vmag,cos_gamma,sin_gamma,sin_2gamma,tan_gamma;
+    double E,c[3],v_rel[3],cmag,vmag,cos_gamma,sin_gamma,sin_2gamma,tan_gamma;
 
-    //do not include if not in fix group
+    // do not include if not in fix group
     if(!(atom->mask[ip] & groupbit)) return;
 
+    // add contribution to triangle force
     vectorAdd3D(STLdata->f_tri[iTri],frc,STLdata->f_tri[iTri]);
 
+    // add contribution to total body force and torque
     vectorAdd3D(force_total,frc,force_total);
     vectorSubtract3D(contactPoint,p_ref,tmp);
     vectorCross3D(tmp,frc,tmp2); //tmp2 is torque contrib
     vectorAdd3D(torque_total,tmp2,torque_total);
 
+    // add wear if applicable
     if(finnie_flag)
     {
         
         vectorSubtract3D(contactPoint,atom->x[ip],c);
         cmag = vectorMag3D(c);
 
-        if(vectorDot3D(c,atom->v[ip]) < 0.) return;
+        // calculate relative velocity
+        vectorSubtract3D(atom->v[ip],v_wall,v_rel);
 
-        vmag = vectorMag3D(atom->v[ip]);
+        if(vectorDot3D(c,v_rel) < 0.) return;
 
-        sin_gamma = FABS(vectorDot3D(atom->v[ip],STLdata->facenormal[iTri])) / (vmag);
+        vmag = vectorMag3D(v_rel);
+
+        sin_gamma = MathExtraLiggghts::abs(vectorDot3D(v_rel,STLdata->facenormal[iTri])) / (vmag);
         
         if(sin_gamma > 1.) sin_gamma = 1.;
         if(sin_gamma < -1.) sin_gamma = -1.;
@@ -163,7 +167,7 @@ void FixMeshGranAnalyze::add_particle_contribution(double *frc,double* contactPo
         }
         E *= 2.*k_finnie[atom_type_wall-1][atom->type[ip]-1] * vmag * vectorMag3D(frc);
         
-        STLdata->wear_step[iTri] += E;
+        STLdata->wear_step[iTri] += E / STLdata->Area[iTri];
     }
 }
 
@@ -180,21 +184,9 @@ void FixMeshGranAnalyze::calc_total_force()
 {
     int nTri = STLdata->nTri;
 
-    //total force on tri
-    double *force_total_all=new double[3];
-    double *torque_total_all=new double[3];
-
-    MPI_Allreduce(force_total,force_total_all,3, MPI_DOUBLE, MPI_SUM,world);
-    MPI_Allreduce(torque_total,torque_total_all,3, MPI_DOUBLE, MPI_SUM,world);
-
-    for(int j=0;j<3;j++)
-    {
-        force_total[j]=force_total_all[j];
-        torque_total[j]=torque_total_all[j];
-    }
-
-    delete []force_total_all;
-    delete []torque_total_all;
+    //total force and torque on mesh
+    MyMPI::My_MPI_Sum_Vector(force_total,3,world);
+    MyMPI::My_MPI_Sum_Vector(torque_total,3,world);
 
     double *wear = STLdata->wear;
     double *wear_step = STLdata->wear_step;

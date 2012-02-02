@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -99,7 +99,7 @@ void Update::set_units(const char *style)
   // physical constants from:
   // http://physics.nist.gov/cuu/Constants/Table/allascii.txt
   // using thermochemical calorie = 4.184 J
-  
+
   if (strcmp(style,"lj") == 0) {
     force->boltz = 1.0;
     force->mvv2e = 1.0;
@@ -111,14 +111,14 @@ void Update::set_units(const char *style)
     force->xxt2kmu = 1.0;
     dt = 0.005;
     neighbor->skin = 0.3;
-    
+
   } else if (strcmp(style,"real") == 0) {
     force->boltz = 0.0019872067;
     force->mvv2e = 48.88821291 * 48.88821291;
     force->ftm2v = 1.0 / 48.88821291 / 48.88821291;
     force->nktv2p = 68568.415;
     force->qqr2e = 332.06371;
-    force->qe2f = 23.060549; 
+    force->qe2f = 23.060549;
     force->vxmu2f = 1.4393264316e4;
     force->xxt2kmu = 0.1;
     dt = 1.0;
@@ -238,9 +238,10 @@ void Update::reset_timestep(int narg, char **arg)
     error->all("Cannot reset timestep with restart file already written");
 
   for (int i = 0; i < modify->nfix; i++)
-    if (modify->fix[i]->time_depend)
+    if (modify->fix[i]->time_depend){
+        fprintf(screen,"fix %s is time-dependent\n",modify->fix[i]->style);
       error->all("Cannot reset timestep with a time-dependent fix defined");
-
+    }
   for (int i = 0; i < domain->nregion; i++)
     if (domain->regions[i]->dynamic_check())
       error->all("Cannot reset timestep with a dynamic region defined");

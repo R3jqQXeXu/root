@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -93,7 +93,7 @@ void FixWallRegion::init()
 		 "atom attribute diameter");
 
     for (int i = 1; i <= atom->ntypes; i++)
-      if ((atom->shape[i][0] != atom->shape[i][1]) || 
+      if ((atom->shape[i][0] != atom->shape[i][1]) ||
 	  (atom->shape[i][0] != atom->shape[i][2]) ||
 	  (atom->shape[i][1] != atom->shape[i][2]))
 	error->all("Fix wall/region colloid requires spherical particles");
@@ -102,15 +102,15 @@ void FixWallRegion::init()
     int *type = atom->type;
     int *mask = atom->mask;
     int nlocal = atom->nlocal;
-    
+
     int flag = 0;
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit)
 	if (atom->shape[type[i]][0] == 0.0) flag = 1;
-    
+
     int flagall;
     MPI_Allreduce(&flag,&flagall,1,MPI_INT,MPI_SUM,world);
-    if (flagall) 
+    if (flagall)
       error->all("Fix wall/region colloid requires extended particles");
   }
 
@@ -191,7 +191,7 @@ void FixWallRegion::post_force(int vflag)
   // region->match() insures particle is in region or on surface, else error
   // if returned contact dist r = 0, is on surface, also an error
   // in COLLOID case, r <= shape radius is an error
-  
+
   for (i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
       if (!region->match(x[i][0],x[i][1],x[i][2])) {
@@ -211,7 +211,7 @@ void FixWallRegion::post_force(int vflag)
 
 	if (style == LJ93) lj93(region->contact[m].r);
 	else if (style == LJ126) lj126(region->contact[m].r);
-	else if (style == COLLOID) 
+	else if (style == COLLOID)
 	  colloid(region->contact[m].r,shape[type[i]][0]);
 	else harmonic(region->contact[m].r);
 
@@ -349,6 +349,7 @@ void FixWallRegion::colloid(double r, double rad)
 
 void FixWallRegion::harmonic(double r)
 {
-  fwall = 2.0*epsilon*r;
-  eng = epsilon*r*r - offset;
+    double dr = cutoff - r;
+    fwall = 2.0*epsilon*dr;
+    eng = epsilon*dr*dr;
 }
